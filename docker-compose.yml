@@ -1,0 +1,41 @@
+# Local development stack. Not a production topology.
+name: mining4dollars
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: m4d
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Creates the test database alongside the main one on first boot.
+      - ./scripts/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  api:
+    build: .
+    depends_on:
+      # Waits for the healthcheck, not merely for the container to exist;
+      # otherwise the API races the database's own startup.
+      db:
+        condition: service_healthy
+    environment:
+      M4D_ENVIRONMENT: local
+      M4D_LOG_FORMAT: console
+      M4D_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/m4d
+    ports:
+      - "8000:8000"
+    # Schema changes are applied as an explicit step rather than baked into the
+    # image's default command; see the Dockerfile for why.
+    command: sh -c "alembic upgrade head && m4d serve"
+
+volumes:
+  pgdata:
