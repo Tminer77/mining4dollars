@@ -1,0 +1,2994 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<title>mining4dollars — topology</title>
+<meta
+  name="description"
+  content="A single-file Three.js scene: a procedurally grown branch, scanned into existence, with cards, a butterfly, and shader-driven UI."
+/>
+
+<style>
+  /* ---------------------------------------------------------------------
+     Palette. Two accents only: a cold scan cyan and a warm amber. Everything
+     else is a step on the same near-black blue ramp, which is what keeps the
+     additive glow in the scene readable instead of muddy.
+     --------------------------------------------------------------------- */
+  :root {
+    --ink-0: #04060a;
+    --ink-1: #070b12;
+    --ink-2: #0d141e;
+    --line: rgba(140, 190, 220, 0.16);
+    --line-strong: rgba(150, 220, 255, 0.34);
+    --fg: #dfe9f2;
+    --fg-dim: rgba(223, 233, 242, 0.52);
+    --fg-faint: rgba(223, 233, 242, 0.3);
+    --scan: #7fe6ff;
+    --amber: #ffb45c;
+
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --gutter: clamp(18px, 3.6vw, 54px);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+    background: var(--ink-0);
+    color: var(--fg);
+    font-family: var(--sans);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  /* The DOM overlay is inert by default; only leaf controls opt back in, so
+     the whole surface stays draggable for orbiting. */
+  .ui {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    opacity: 0;
+    transition: opacity 900ms ease 120ms;
+  }
+  .ui[data-ready="1"] {
+    opacity: 1;
+  }
+  .ui a,
+  .ui button {
+    pointer-events: auto;
+  }
+
+  /* ------------------------------- nav ------------------------------- */
+
+  .nav {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin: var(--gutter);
+    margin-bottom: 0;
+    padding: 0 18px;
+    height: 56px;
+    /* No background here: the fill is a shader quad rendered underneath in the
+       same WebGL context, keyed to this element's bounding rect. */
+  }
+
+  .nav__mark {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .nav__mark b {
+    font-weight: 600;
+  }
+  .nav__mark span {
+    color: var(--fg-faint);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+  }
+
+  .nav__links {
+    display: flex;
+    gap: 26px;
+    list-style: none;
+  }
+  .nav__links a {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    text-decoration: none;
+    padding: 6px 2px;
+    position: relative;
+    transition: color 220ms ease;
+  }
+  .nav__links a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 100%;
+    bottom: 0;
+    height: 1px;
+    background: var(--scan);
+    transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .nav__links a:hover,
+  .nav__links a:focus-visible {
+    color: var(--fg);
+  }
+  .nav__links a:hover::after,
+  .nav__links a:focus-visible::after {
+    right: 0;
+  }
+
+  /* ------------------------------ hero ------------------------------- */
+
+  .hero {
+    margin: var(--gutter);
+    margin-top: 0;
+    max-width: 44ch;
+  }
+
+  .hero__eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--scan);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .hero__eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--scan);
+    box-shadow: 0 0 12px var(--scan);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.35;
+      transform: scale(0.7);
+    }
+  }
+
+  .hero h1 {
+    font-size: clamp(30px, 5.2vw, 62px);
+    line-height: 1.02;
+    font-weight: 300;
+    letter-spacing: -0.025em;
+    margin-bottom: 18px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--amber);
+  }
+
+  .hero p {
+    font-size: clamp(13px, 1.35vw, 15px);
+    line-height: 1.65;
+    color: var(--fg-dim);
+    max-width: 40ch;
+    margin-bottom: 30px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  /* Buttons are transparent shells. Fill, border glow and hover ripple all
+     come from a shader quad tracking the same rect. */
+  .btn {
+    position: relative;
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 15px 28px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: color 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+  .btn:active {
+    transform: translateY(0);
+  }
+  .btn--ghost {
+    color: var(--fg-dim);
+  }
+  .btn--ghost:hover {
+    color: var(--fg);
+  }
+  .btn:focus-visible {
+    outline: 1px solid var(--scan);
+    outline-offset: 3px;
+  }
+
+  /* ------------------------------- hud -------------------------------- */
+
+  .hud {
+    position: fixed;
+    right: var(--gutter);
+    bottom: var(--gutter);
+    z-index: 2;
+    pointer-events: none;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--fg-faint);
+    text-align: right;
+    line-height: 1.9;
+    opacity: 0;
+    transition: opacity 900ms ease 400ms;
+  }
+  .ui[data-ready="1"] ~ .hud {
+    opacity: 1;
+  }
+  .hud b {
+    color: var(--fg-dim);
+    font-weight: 400;
+  }
+  .hud__hint {
+    margin-top: 10px;
+    color: rgba(127, 230, 255, 0.42);
+  }
+
+  /* ------------------------------ boot -------------------------------- */
+
+  .boot {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    display: grid;
+    place-content: center;
+    gap: 14px;
+    background: var(--ink-0);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--fg-dim);
+    transition: opacity 700ms ease, visibility 700ms;
+  }
+  .boot[data-done="1"] {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .boot__log {
+    min-height: 5.6em;
+    line-height: 1.9;
+  }
+  .boot__log div {
+    opacity: 0;
+    transform: translateY(4px);
+    animation: bootline 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes bootline {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .boot__log b {
+    color: var(--scan);
+    font-weight: 400;
+  }
+  .boot__bar {
+    width: min(320px, 62vw);
+    height: 1px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .boot__bar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--scan);
+    box-shadow: 0 0 10px var(--scan);
+    transition: width 180ms linear;
+  }
+
+  .fallback {
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    display: none;
+    place-content: center;
+    text-align: center;
+    padding: 32px;
+    background: var(--ink-0);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 2;
+    letter-spacing: 0.1em;
+    color: var(--fg-dim);
+  }
+  .fallback[data-show="1"] {
+    display: grid;
+  }
+
+  @media (max-width: 720px) {
+    .nav__links {
+      display: none;
+    }
+    .hud {
+      display: none;
+    }
+    .hero {
+      max-width: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero__eyebrow::before {
+      animation: none;
+    }
+    .ui,
+    .boot,
+    .hud {
+      transition-duration: 1ms;
+    }
+  }
+</style>
+
+<canvas id="stage" aria-hidden="true"></canvas>
+
+<div class="ui" id="ui">
+  <nav class="nav" id="nav" data-shader="nav">
+    <a class="nav__mark" href="#" aria-label="mining4dollars home">
+      <b>MINING4DOLLARS</b>
+      <span>M4D</span>
+    </a>
+    <ul class="nav__links">
+      <li><a href="#" data-scan="overview">Overview</a></li>
+      <li><a href="#" data-scan="topology">Topology</a></li>
+      <li><a href="#" data-scan="telemetry">Telemetry</a></li>
+      <li><a href="#" data-scan="docs">Docs</a></li>
+    </ul>
+  </nav>
+
+  <div class="hero">
+    <p class="hero__eyebrow">System online</p>
+    <h1>The shape of a network, <em>scanned into view</em>.</h1>
+    <p>
+      One HTML file. A branch grown from a seed, mapped point by point, then
+      drawn in. Move the pointer to orbit — everything else is a shader.
+    </p>
+    <div class="actions">
+      <button class="btn" id="btn-primary" data-shader="primary">Run the scan</button>
+      <button class="btn btn--ghost" id="btn-ghost" data-shader="ghost">Reload cards</button>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="hud">
+  <div><b>FPS</b> <span id="hud-fps">—</span></div>
+  <div><b>NODES</b> <span id="hud-nodes">—</span></div>
+  <div><b>ORBIT</b> <span id="hud-orbit">—</span></div>
+  <div class="hud__hint">drag to orbit · scroll to dolly · hover the butterfly</div>
+</div>
+
+<div class="boot" id="boot">
+  <div class="boot__log" id="boot-log"></div>
+  <div class="boot__bar"><i id="boot-bar"></i></div>
+</div>
+
+<div class="fallback" id="fallback">
+  <div>
+    <p>WEBGL UNAVAILABLE</p>
+    <p style="color: rgba(223, 233, 242, 0.3)">
+      This scene needs a WebGL2 context. Try a current desktop browser with
+      hardware acceleration enabled.
+    </p>
+  </div>
+</div>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+</script>
+
+<script type="module">
+  import * as THREE from "three";
+
+  /* =====================================================================
+     0. Tunables and helpers
+     ===================================================================== */
+
+  const CFG = {
+    seed: 20260817,
+    background: 0x04060a,
+    scan: new THREE.Color("#7fe6ff"),
+    amber: new THREE.Color("#ffb45c"),
+    leaf: new THREE.Color("#35695a"),
+    bark: new THREE.Color("#2a2119"),
+    camera: { radius: 12.4, minRadius: 6.5, maxRadius: 20, theta: 0.62, phi: 1.36 },
+    target: new THREE.Vector3(0, 1.35, 0),
+    dust: 1400,
+    trail: 900,
+  };
+
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smoothstep = (e0, e1, x) => {
+    const t = clamp((x - e0) / (e1 - e0), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+  const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  /* Frame-rate independent approach: the classic lerp-per-frame is wrong at
+     variable dt, this is the exponential form of the same idea. */
+  const damp = (a, b, lambda, dt) => lerp(a, b, 1 - Math.exp(-lambda * dt));
+
+  /* Deterministic PRNG so the branch is identical on every load — the intro
+     scan is choreographed against the geometry, and a random tree each time
+     would put the butterfly's perch somewhere different. */
+  function mulberry32(a) {
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* Shared GLSL. Hash and value noise after Dave Hoskins' well-known
+     formulations; short enough to inline, cheap enough to call in a loop. */
+  const GLSL_COMMON = /* glsl */ `
+    float hash13(vec3 p3) {
+      p3 = fract(p3 * 0.1031);
+      p3 += dot(p3, p3.zyx + 31.32);
+      return fract((p3.x + p3.y) * p3.z);
+    }
+    float hash11(float p) {
+      p = fract(p * 0.1031);
+      p *= p + 33.33;
+      p *= p + p;
+      return fract(p);
+    }
+    float vnoise(vec3 x) {
+      vec3 i = floor(x);
+      vec3 f = fract(x);
+      f = f * f * (3.0 - 2.0 * f);
+      float n000 = hash13(i + vec3(0.0, 0.0, 0.0));
+      float n100 = hash13(i + vec3(1.0, 0.0, 0.0));
+      float n010 = hash13(i + vec3(0.0, 1.0, 0.0));
+      float n110 = hash13(i + vec3(1.0, 1.0, 0.0));
+      float n001 = hash13(i + vec3(0.0, 0.0, 1.0));
+      float n101 = hash13(i + vec3(1.0, 0.0, 1.0));
+      float n011 = hash13(i + vec3(0.0, 1.0, 1.0));
+      float n111 = hash13(i + vec3(1.0, 1.0, 1.0));
+      return mix(
+        mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+        mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),
+        f.z
+      );
+    }
+    float fbm(vec3 p) {
+      float s = 0.0, a = 0.5;
+      for (int i = 0; i < 5; i++) {
+        s += a * vnoise(p);
+        p *= 2.03;
+        a *= 0.5;
+      }
+      return s;
+    }
+    // Signed distance to a rounded box, used for card corners and button pills.
+    float sdRoundBox(vec2 p, vec2 b, float r) {
+      vec2 q = abs(p) - b + r;
+      return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+    }
+  `;
+
+  /* =====================================================================
+     1. Boot log — the scan needs a moment of anticipation before it fires
+     ===================================================================== */
+
+  const boot = {
+    el: document.getElementById("boot"),
+    log: document.getElementById("boot-log"),
+    bar: document.getElementById("boot-bar"),
+    line(text, accent) {
+      const d = document.createElement("div");
+      d.innerHTML = accent ? `<b>${text}</b>` : text;
+      this.log.appendChild(d);
+      while (this.log.childElementCount > 3) this.log.removeChild(this.log.firstChild);
+    },
+    progress(p) {
+      this.bar.style.width = `${clamp(p, 0, 1) * 100}%`;
+    },
+    done() {
+      this.el.dataset.done = "1";
+    },
+  };
+  boot.line("INITIALISING CONTEXT");
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* =====================================================================
+     2. Renderer, scene, camera rig
+     ===================================================================== */
+
+  const canvas = document.getElementById("stage");
+  let renderer = null;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: "high-performance",
+      stencil: false,
+    });
+  } catch (err) {
+    console.error(err);
+  }
+
+  if (!renderer) {
+    document.getElementById("fallback").dataset.show = "1";
+    boot.done();
+    throw new Error("WebGL unavailable");
+  }
+
+  const MAX_DPR = 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setClearColor(CFG.background, 1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(CFG.background);
+  scene.fog = new THREE.FogExp2(CFG.background, 0.032);
+
+  const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 200);
+
+  /* Orbit is hand-rolled rather than OrbitControls: the pointer has to drive a
+     lazy parallax drift *and* a drag orbit at the same time, and the pointer
+     also feeds the particle trail and the butterfly. One input model, one
+     place to damp it. */
+  const rig = {
+    theta: CFG.camera.theta,
+    phi: CFG.camera.phi,
+    radius: CFG.camera.radius,
+    targetTheta: CFG.camera.theta,
+    targetPhi: CFG.camera.phi,
+    targetRadius: CFG.camera.radius,
+    dragging: false,
+    userTouched: false,
+    lastX: 0,
+    lastY: 0,
+    // Multiplier applied after damping. A portrait viewport has almost no
+    // horizontal field at this FOV, so the whole rig has to step back.
+    frameScale: 1,
+    // Pointer parallax: an offset layered on top of the dragged orientation.
+    driftTheta: 0,
+    driftPhi: 0,
+  };
+
+  const pointer = {
+    // Normalised device coords, -1..1, y up.
+    ndc: new THREE.Vector2(0, 0),
+    smooth: new THREE.Vector2(0, 0),
+    // CSS pixels, for screen-space hit tests against the butterfly.
+    px: new THREE.Vector2(window.innerWidth * 0.5, window.innerHeight * 0.5),
+    world: new THREE.Vector3(),
+    inside: false,
+    moved: false,
+    down: false,
+  };
+
+  /* Lighting is deliberately thin. Most of what reads as light in this scene is
+     emissive: the scan front, the trail, the wings. These three just keep the
+     bark from going flat black. */
+  scene.add(new THREE.AmbientLight(0x1a2836, 1.1));
+
+  const keyLight = new THREE.DirectionalLight(0xbfe6ff, 1.35);
+  keyLight.position.set(-5.5, 8, 4.5);
+  scene.add(keyLight);
+
+  const rimLight = new THREE.DirectionalLight(0xffb45c, 0.9);
+  rimLight.position.set(6, 2.5, -6);
+  scene.add(rimLight);
+
+  const fillLight = new THREE.PointLight(0x7fe6ff, 14, 26, 2.0);
+  fillLight.position.set(0, 0.4, 3.2);
+  scene.add(fillLight);
+
+  /* =====================================================================
+     3. The branch — a seeded skeleton, then tapered tubes over it
+     ===================================================================== */
+
+  const UP = new THREE.Vector3(0, 1, 0);
+
+  function buildSkeleton() {
+    const rng = mulberry32(CFG.seed);
+    const branches = [];
+    const tips = [];
+    let maxPath = 0;
+
+    function grow(start, dir, radius, length, depth, pathStart) {
+      const segments = clamp(Math.round(length * 6), 6, 24);
+      const step = length / segments;
+      const points = [start.clone()];
+      const d = dir.clone().normalize();
+      const p = start.clone();
+
+      // A per-branch bias makes each branch sweep along one smooth arc instead
+      // of jittering; the per-step noise then breaks up the arc a little.
+      const bias = new THREE.Vector3(rng() - 0.5, (rng() - 0.5) * 0.4, rng() - 0.5)
+        .normalize()
+        .multiplyScalar(0.55);
+      const upPull = depth === 0 ? 0.5 : depth === 1 ? 0.26 : 0.12;
+
+      for (let i = 1; i <= segments; i++) {
+        d.addScaledVector(bias, step * 0.45);
+        d.addScaledVector(UP, step * upPull);
+        d.x += (rng() - 0.5) * step * 0.5;
+        d.y += (rng() - 0.5) * step * 0.32;
+        d.z += (rng() - 0.5) * step * 0.5;
+        d.normalize();
+        p.addScaledVector(d, step);
+        points.push(p.clone());
+      }
+
+      const branch = { points, radius, length, depth, pathStart };
+      branches.push(branch);
+      maxPath = Math.max(maxPath, pathStart + length);
+
+      if (depth >= 3) {
+        tips.push({ point: points[points.length - 1].clone(), dir: d.clone() });
+        return;
+      }
+
+      const childCount = depth === 0 ? 4 : depth === 1 ? 3 : 2;
+      const twist = rng() * Math.PI * 2;
+
+      for (let k = 0; k < childCount; k++) {
+        const t = clamp(0.34 + (0.62 * (k + 0.35 + rng() * 0.5)) / childCount, 0.2, 0.97);
+        const idx = clamp(Math.round(t * segments), 1, segments);
+        const origin = points[idx];
+        const ahead = points[Math.min(idx + 1, segments)];
+        const behind = points[Math.max(idx - 1, 0)];
+        const parentDir = ahead.clone().sub(behind).normalize();
+
+        // Phyllotaxis: successive children step round the parent by the golden
+        // angle, which is what stops them stacking on one side.
+        let axis = new THREE.Vector3(0, 1, 0);
+        if (Math.abs(parentDir.dot(axis)) > 0.92) axis = new THREE.Vector3(1, 0, 0);
+        axis = axis.clone().cross(parentDir).normalize();
+        axis.applyAxisAngle(parentDir, twist + k * 2.39996);
+
+        const spread = (depth === 0 ? 0.72 : 0.62) + rng() * 0.28;
+        const childDir = parentDir.clone().applyAxisAngle(axis, spread);
+
+        grow(
+          origin.clone(),
+          childDir,
+          radius * (0.56 + rng() * 0.1),
+          length * (0.6 + rng() * 0.16),
+          depth + 1,
+          pathStart + t * length
+        );
+      }
+    }
+
+    grow(
+      new THREE.Vector3(0.35, -2.5, 0.2),
+      new THREE.Vector3(-0.16, 1, -0.08),
+      0.27,
+      3.5,
+      0,
+      0
+    );
+
+    return { branches, tips, maxPath };
+  }
+
+  const taper = (u) => 0.18 + 0.82 * Math.pow(1 - u, 0.62);
+
+  /* One tapered tube per branch, carrying an `aGrow` attribute: normalised path
+     distance from the root. Every reveal in the intro — points, wireframe,
+     solid — thresholds against that single number, which is what makes the
+     three stages read as one continuous growth instead of three effects. */
+  function branchGeometry(branch, maxPath) {
+    const curve = new THREE.CatmullRomCurve3(branch.points, false, "centripetal");
+    const tubular = clamp(branch.points.length * 2, 12, 48);
+    const radial = branch.depth === 0 ? 10 : branch.depth === 1 ? 8 : 6;
+    const geo = new THREE.TubeGeometry(curve, tubular, branch.radius, radial, false);
+
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    const centers = [];
+    for (let i = 0; i <= tubular; i++) centers.push(curve.getPointAt(i / tubular));
+
+    const grow = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) {
+      const u = uv.getX(i);
+      const c = centers[clamp(Math.round(u * tubular), 0, tubular)];
+      const s = taper(u);
+      pos.setXYZ(
+        i,
+        c.x + (pos.getX(i) - c.x) * s,
+        c.y + (pos.getY(i) - c.y) * s,
+        c.z + (pos.getZ(i) - c.z) * s
+      );
+      grow[i] = (branch.pathStart + u * branch.length) / maxPath;
+    }
+    pos.needsUpdate = true;
+    geo.setAttribute("aGrow", new THREE.BufferAttribute(grow, 1));
+    geo.computeVertexNormals();
+    return { geo, tubular, radial };
+  }
+
+  /* A minimal merge for exactly the attributes used here. Pulling in
+     BufferGeometryUtils for four attributes would be the only reason to depend
+     on the addons bundle at load time. */
+  function mergeGeometries(list) {
+    let vertexCount = 0;
+    let indexCount = 0;
+    for (const g of list) {
+      vertexCount += g.attributes.position.count;
+      indexCount += g.index.count;
+    }
+    const position = new Float32Array(vertexCount * 3);
+    const normal = new Float32Array(vertexCount * 3);
+    const uv = new Float32Array(vertexCount * 2);
+    const aGrow = new Float32Array(vertexCount);
+    const index = vertexCount > 65535 ? new Uint32Array(indexCount) : new Uint16Array(indexCount);
+
+    let vo = 0;
+    let io = 0;
+    for (const g of list) {
+      const n = g.attributes.position.count;
+      position.set(g.attributes.position.array, vo * 3);
+      normal.set(g.attributes.normal.array, vo * 3);
+      uv.set(g.attributes.uv.array, vo * 2);
+      aGrow.set(g.attributes.aGrow.array, vo);
+      const src = g.index.array;
+      for (let i = 0; i < src.length; i++) index[io + i] = src[i] + vo;
+      vo += n;
+      io += src.length;
+    }
+
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute("position", new THREE.BufferAttribute(position, 3));
+    merged.setAttribute("normal", new THREE.BufferAttribute(normal, 3));
+    merged.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    merged.setAttribute("aGrow", new THREE.BufferAttribute(aGrow, 1));
+    merged.setIndex(new THREE.BufferAttribute(index, 1));
+    merged.computeBoundingSphere();
+    return merged;
+  }
+
+  /* The wireframe uses the tube's own quad topology — rails along the branch,
+     rings around it — rather than THREE.WireframeGeometry, which would add a
+     diagonal to every quad and lose `aGrow`. */
+  function wireframeFor(geo, tubular, radial, ringStride) {
+    const pos = geo.attributes.position;
+    const grow = geo.attributes.aGrow;
+    const positions = [];
+    const grows = [];
+    const at = (i, j) => i * (radial + 1) + j;
+    const push = (a, b) => {
+      positions.push(pos.getX(a), pos.getY(a), pos.getZ(a), pos.getX(b), pos.getY(b), pos.getZ(b));
+      grows.push(grow.getX(a), grow.getX(b));
+    };
+    for (let i = 0; i < tubular; i++) {
+      for (let j = 0; j < radial; j++) push(at(i, j), at(i + 1, j));
+    }
+    for (let i = 0; i <= tubular; i += ringStride) {
+      for (let j = 0; j < radial; j++) push(at(i, j), at(i, j + 1));
+    }
+    return { positions, grows };
+  }
+
+  boot.line("GROWING SKELETON");
+
+  const skeleton = buildSkeleton();
+  const scanOrigin = new THREE.Vector3(0.35, -2.5, 0.2);
+
+  const branchGeos = [];
+  const wirePositions = [];
+  const wireGrows = [];
+  for (const branch of skeleton.branches) {
+    const { geo, tubular, radial } = branchGeometry(branch, skeleton.maxPath);
+    branchGeos.push(geo);
+    const w = wireframeFor(geo, tubular, radial, branch.depth === 0 ? 2 : 3);
+    wirePositions.push(...w.positions);
+    wireGrows.push(...w.grows);
+  }
+  const branchGeometryMerged = mergeGeometries(branchGeos);
+
+  /* ---- solid bark -------------------------------------------------- */
+
+  const branchUniforms = {
+    uReveal: { value: 0 },
+    uTime: { value: 0 },
+    uScan: { value: CFG.scan },
+    uAmber: { value: CFG.amber },
+  };
+
+  const branchMaterial = new THREE.MeshStandardMaterial({
+    color: CFG.bark,
+    roughness: 0.88,
+    metalness: 0.04,
+  });
+
+  branchMaterial.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, branchUniforms);
+
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+         attribute float aGrow;
+         varying float vGrow;
+         varying vec3 vWorld;`
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+         vGrow = aGrow;
+         vWorld = (modelMatrix * vec4(position, 1.0)).xyz;`
+      );
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+         varying float vGrow;
+         varying vec3 vWorld;
+         uniform float uReveal;
+         uniform float uTime;
+         uniform vec3 uScan;
+         uniform vec3 uAmber;
+         ${GLSL_COMMON}`
+      )
+      // Earliest chunk in main(): anything past the growth front is not there
+      // yet, so it never costs a lighting evaluation.
+      .replace(
+        "#include <clipping_planes_fragment>",
+        `#include <clipping_planes_fragment>
+         float dissolve = fbm(vWorld * 4.5) * 0.075;
+         if (vGrow > uReveal + dissolve) discard;`
+      )
+      // Bark grain: cheap, but it stops the tubes reading as plastic.
+      .replace(
+        "#include <color_fragment>",
+        `#include <color_fragment>
+         float grain = fbm(vWorld * vec3(9.0, 2.2, 9.0));
+         diffuseColor.rgb *= 0.72 + grain * 0.85;
+         diffuseColor.rgb += uAmber * pow(grain, 3.0) * 0.16;`
+      )
+      .replace(
+        "#include <opaque_fragment>",
+        `#include <opaque_fragment>
+         float front = smoothstep(0.11, 0.0, uReveal - vGrow);
+         gl_FragColor.rgb += uScan * front * 1.5;`
+      );
+  };
+  // Without this the injected branch program would share a cache entry with any
+  // other MeshStandardMaterial of the same parameters.
+  branchMaterial.customProgramCacheKey = () => "m4d-branch";
+
+  const branchMesh = new THREE.Mesh(branchGeometryMerged, branchMaterial);
+  branchMesh.frustumCulled = false;
+  scene.add(branchMesh);
+
+  /* ---- wireframe pass ---------------------------------------------- */
+
+  const wireGeometry = new THREE.BufferGeometry();
+  wireGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(wirePositions), 3)
+  );
+  wireGeometry.setAttribute("aGrow", new THREE.BufferAttribute(new Float32Array(wireGrows), 1));
+
+  const wireMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uWire: { value: 0 },
+      uOpacity: { value: 1 },
+      uScan: { value: CFG.scan },
+      uLine: { value: new THREE.Color("#2f6d8c") },
+    },
+    vertexShader: /* glsl */ `
+      attribute float aGrow;
+      varying float vGrow;
+      void main() {
+        vGrow = aGrow;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying float vGrow;
+      uniform float uWire;
+      uniform float uOpacity;
+      uniform vec3 uScan;
+      uniform vec3 uLine;
+      void main() {
+        float revealed = uWire - vGrow;
+        if (revealed < 0.0) discard;
+        // Bright right at the drawing front, settling to a dim structural line.
+        float front = exp(-revealed * 26.0);
+        vec3 c = mix(uLine, uScan, front);
+        float a = uOpacity * (0.22 + front * 1.1);
+        gl_FragColor = vec4(c * (0.6 + front * 2.0), a);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+
+  const wireMesh = new THREE.LineSegments(wireGeometry, wireMaterial);
+  wireMesh.frustumCulled = false;
+  scene.add(wireMesh);
+
+  /* ---- scan points: the odradek sweep ------------------------------ */
+
+  const scanPointGeometry = (() => {
+    const src = branchGeometryMerged;
+    const pos = src.attributes.position;
+    const nrm = src.attributes.normal;
+    const grow = src.attributes.aGrow;
+    const count = pos.count;
+    const positions = new Float32Array(count * 3);
+    const dists = new Float32Array(count);
+    const seeds = new Float32Array(count);
+    const grows = new Float32Array(count);
+    const rng = mulberry32(CFG.seed ^ 0x5f3a);
+    let maxDist = 0;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < count; i++) {
+      // Float the points just off the surface so they never z-fight the bark.
+      v.set(
+        pos.getX(i) + nrm.getX(i) * 0.022,
+        pos.getY(i) + nrm.getY(i) * 0.022,
+        pos.getZ(i) + nrm.getZ(i) * 0.022
+      );
+      positions[i * 3] = v.x;
+      positions[i * 3 + 1] = v.y;
+      positions[i * 3 + 2] = v.z;
+      const d = v.distanceTo(scanOrigin);
+      dists[i] = d;
+      seeds[i] = rng();
+      grows[i] = grow.getX(i);
+      if (d > maxDist) maxDist = d;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    g.setAttribute("aDist", new THREE.BufferAttribute(dists, 1));
+    g.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+    g.setAttribute("aGrow", new THREE.BufferAttribute(grows, 1));
+    g.userData.maxDist = maxDist;
+    return g;
+  })();
+
+  const scanUniforms = {
+    uFront: { value: 0 },
+    uTime: { value: 0 },
+    uOpacity: { value: 1 },
+    uMaxDist: { value: scanPointGeometry.userData.maxDist },
+    uScan: { value: CFG.scan },
+    uAmber: { value: CFG.amber },
+    uScale: { value: window.innerHeight * 0.5 },
+  };
+
+  const scanMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: scanUniforms,
+    vertexShader: /* glsl */ `
+      attribute float aDist;
+      attribute float aSeed;
+      uniform float uFront;
+      uniform float uTime;
+      uniform float uMaxDist;
+      uniform float uScale;
+      varying float vBright;
+      varying float vWarm;
+      void main() {
+        // A point exists once the expanding front has passed it, and flares
+        // while the front is on top of it.
+        float discovered = step(aDist, uFront);
+        float lead = exp(-pow(max(uFront - aDist, 0.0) * 2.6, 2.0));
+
+        // After discovery the sweep keeps pinging, so the structure never goes
+        // completely inert.
+        float pr = fract(uTime * 0.21 + aSeed * 0.0035);
+        float ping = exp(-pow((pr * uMaxDist * 1.15 - aDist) * 3.4, 2.0)) * (1.0 - pr);
+
+        vBright = discovered * (0.12 + lead * 0.9 + ping * 0.5);
+        vWarm = aSeed;
+
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float size = 1.0 + lead * 2.6 + ping * 1.1 + aSeed * 0.5;
+        gl_PointSize = size * (uScale / max(-mv.z, 0.001));
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uOpacity;
+      uniform vec3 uScan;
+      uniform vec3 uAmber;
+      varying float vBright;
+      varying float vWarm;
+      void main() {
+        vec2 p = gl_PointCoord * 2.0 - 1.0;
+        float d = dot(p, p);
+        if (d > 1.0) discard;
+        float falloff = pow(1.0 - d, 1.7);
+        // A minority of nodes read warm, which keeps the grid from looking like
+        // a uniform cyan dust cloud.
+        vec3 c = mix(uScan, uAmber, smoothstep(0.86, 1.0, vWarm));
+        float a = falloff * vBright * uOpacity;
+        if (a < 0.003) discard;
+        gl_FragColor = vec4(c * (0.5 + vBright), a);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+
+  const scanPoints = new THREE.Points(scanPointGeometry, scanMaterial);
+  scanPoints.frustumCulled = false;
+  scene.add(scanPoints);
+
+  /* ---- leaves ------------------------------------------------------- */
+
+  const leaves = (() => {
+    const rng = mulberry32(CFG.seed ^ 0x1234);
+    const hosts = skeleton.branches.filter((b) => b.depth >= 2);
+    const count = 330;
+
+    const geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
+    geometry.translate(0, 0.5, 0); // stem at the origin, blade along +Y
+
+    const mesh = new THREE.InstancedMesh(geometry, null, count);
+    const dummy = new THREE.Object3D();
+    const phase = new Float32Array(count);
+    const tint = new Float32Array(count);
+    const grow = new Float32Array(count);
+
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    for (let i = 0; i < count; i++) {
+      const host = hosts[Math.floor(rng() * hosts.length)];
+      const segs = host.points.length - 1;
+      const t = 0.25 + rng() * 0.75;
+      const f = t * segs;
+      const i0 = clamp(Math.floor(f), 0, segs - 1);
+      a.copy(host.points[i0]);
+      b.copy(host.points[i0 + 1]);
+      const p = a.lerp(b, f - i0);
+
+      dummy.position.copy(p);
+      dummy.position.x += (rng() - 0.5) * 0.09;
+      dummy.position.y += (rng() - 0.5) * 0.09;
+      dummy.position.z += (rng() - 0.5) * 0.09;
+      dummy.rotation.set(
+        (rng() - 0.5) * 2.2,
+        rng() * Math.PI * 2,
+        (rng() - 0.5) * 1.5
+      );
+      const s = 0.1 + rng() * 0.11;
+      dummy.scale.set(s, s * 1.65, s);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+
+      phase[i] = rng();
+      tint[i] = rng();
+      grow[i] = (host.pathStart + t * host.length) / skeleton.maxPath;
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    geometry.setAttribute("aPhase", new THREE.InstancedBufferAttribute(phase, 1));
+    geometry.setAttribute("aTint", new THREE.InstancedBufferAttribute(tint, 1));
+    geometry.setAttribute("aGrow", new THREE.InstancedBufferAttribute(grow, 1));
+
+    const uniforms = {
+      uTime: { value: 0 },
+      uReveal: { value: 0 },
+      uWind: { value: 1 },
+      uLeaf: { value: CFG.leaf },
+      uAmber: { value: CFG.amber },
+      uScan: { value: CFG.scan },
+      uFogColor: { value: new THREE.Color(CFG.background) },
+      uFogDensity: { value: scene.fog.density },
+    };
+
+    mesh.material = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      transparent: false,
+      uniforms,
+      vertexShader: /* glsl */ `
+        attribute float aPhase;
+        attribute float aTint;
+        attribute float aGrow;
+        uniform float uTime;
+        uniform float uReveal;
+        uniform float uWind;
+        varying vec2 vUv;
+        varying float vTint;
+        varying float vShade;
+        varying float vFront;
+        varying float vDepth;
+
+        void main() {
+          vUv = uv;
+          vTint = aTint;
+
+          // Leaves unfurl behind the growth front, staggered by their own
+          // distance along the branch.
+          float rev = clamp((uReveal - aGrow) * 4.5, 0.0, 1.0);
+          vFront = exp(-max(uReveal - aGrow, 0.0) * 14.0) * step(0.001, rev);
+          float pop = rev * rev * (3.0 - 2.0 * rev);
+
+          vec3 p = position * pop;
+
+          // Wind: quadratic along the blade so the stem stays anchored.
+          float along = uv.y;
+          vec3 anchor = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+          float gust = sin(uTime * 1.15 + anchor.x * 0.55 + anchor.y * 0.4) * 0.5 + 0.5;
+          float sway = sin(uTime * 2.3 + aPhase * 6.2831 + anchor.y * 1.6);
+          p.x += sway * along * along * 0.34 * (0.35 + gust * 0.8) * uWind;
+          p.z += cos(uTime * 1.9 + aPhase * 6.2831) * along * along * 0.2 * uWind;
+
+          vec4 world = instanceMatrix * vec4(p, 1.0);
+          vec4 mv = modelViewMatrix * world;
+          vDepth = -mv.z;
+
+          // Flat shading against the key light direction, done here because the
+          // blade is a single quad and does not need per-pixel normals.
+          vec3 n = normalize(mat3(instanceMatrix) * vec3(0.0, 0.0, 1.0));
+          vShade = 0.42 + 0.58 * abs(dot(n, normalize(vec3(-0.5, 0.8, 0.45))));
+
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uLeaf;
+        uniform vec3 uAmber;
+        uniform vec3 uScan;
+        uniform vec3 uFogColor;
+        uniform float uFogDensity;
+        varying vec2 vUv;
+        varying float vTint;
+        varying float vShade;
+        varying float vFront;
+        varying float vDepth;
+
+        void main() {
+          vec2 p = vUv * 2.0 - 1.0;
+          float t = clamp(vUv.y, 0.0, 1.0);
+
+          // Lanceolate blade: width follows a sine along the length, biased so
+          // the widest point sits below the middle.
+          float halfW = pow(sin(3.14159 * pow(t, 0.82)), 0.72) * 0.86;
+          if (abs(p.x) > halfW) discard;
+
+          float edge = 1.0 - abs(p.x) / max(halfW, 0.0001);
+          float midrib = smoothstep(0.055, 0.0, abs(p.x));
+          float veins = smoothstep(0.72, 1.0, sin((abs(p.x) * 9.0 - t * 16.0)) * 0.5 + 0.5);
+
+          vec3 base = mix(uLeaf * 0.55, uLeaf, t);
+          base = mix(base, uAmber * 0.85, smoothstep(0.72, 1.0, vTint) * (0.35 + t * 0.5));
+          base += uLeaf * midrib * 0.35;
+          base *= 0.82 + veins * 0.22;
+          base *= vShade;
+          base *= 0.55 + edge * 0.7;
+          // Per-leaf exposure. A canopy where every blade takes the light
+          // identically is the giveaway that it is instanced.
+          base *= 0.55 + fract(vTint * 7.31) * 0.8;
+
+          // The growth front lights each leaf as it unfurls.
+          base += uScan * vFront * 1.6;
+
+          float fog = 1.0 - exp(-pow(uFogDensity * vDepth, 2.0));
+          gl_FragColor = vec4(mix(base, uFogColor, clamp(fog, 0.0, 1.0)), 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    return { mesh, uniforms };
+  })();
+
+  /* ---- ground: a polar grid the sweep also washes over --------------- */
+
+  const ground = (() => {
+    const geometry = new THREE.CircleGeometry(26, 96);
+    geometry.rotateX(-Math.PI / 2);
+    const uniforms = {
+      uTime: { value: 0 },
+      uFront: { value: 0 },
+      uMaxDist: { value: scanPointGeometry.userData.maxDist },
+      uScan: { value: CFG.scan },
+      uOrigin: { value: new THREE.Vector3(scanOrigin.x, 0, scanOrigin.z) },
+      uOpacity: { value: 1 },
+      uLead: { value: 1 },
+    };
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms,
+      vertexShader: /* glsl */ `
+        varying vec3 vWorld;
+        void main() {
+          vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform float uFront;
+        uniform float uMaxDist;
+        uniform float uOpacity;
+        uniform float uLead;
+        uniform vec3 uScan;
+        uniform vec3 uOrigin;
+        varying vec3 vWorld;
+
+        void main() {
+          vec2 d = vWorld.xz - uOrigin.xz;
+          float r = length(d);
+          float ang = atan(d.y, d.x);
+
+          // Rings every 0.9u, spokes every 15 degrees, both antialiased by the
+          // screen-space derivative so they do not shimmer under the orbit.
+          float ringPhase = r / 0.9;
+          float ringLine = abs(fract(ringPhase) - 0.5) * 2.0;
+          float ringAA = fwidth(ringPhase) * 2.4 + 0.001;
+          float rings = smoothstep(1.0, 1.0 - ringAA, ringLine);
+
+          float spokePhase = ang / 0.2617994;
+          float spokeLine = abs(fract(spokePhase) - 0.5) * 2.0;
+          float spokeAA = fwidth(spokePhase) * 2.4 + 0.001;
+          float spokes = smoothstep(1.0, 1.0 - spokeAA, spokeLine) * smoothstep(0.6, 3.0, r);
+
+          float grid = max(rings, spokes * 0.7);
+
+          float front = uFront * 1.5;
+          float revealed = 1.0 - smoothstep(front - 0.7, front + 0.7, r);
+          float lead = exp(-pow(max(front - r, 0.0) * 1.4, 2.0)) * uLead;
+          float pr = fract(uTime * 0.21);
+          float ping = exp(-pow((pr * uMaxDist * 1.9 - r) * 1.6, 2.0)) * (1.0 - pr);
+
+          // Hole in the middle and a short reach: the grid is a floor
+          // reference, and any more of it competes with the branch.
+          float fade = smoothstep(13.0, 2.5, r) * smoothstep(0.4, 2.2, r);
+          float a = revealed * fade * uOpacity * (grid * (0.06 + ping * 0.22) + lead * 0.10 + ping * 0.010);
+          if (a < 0.002) discard;
+
+          gl_FragColor = vec4(uScan * (0.5 + lead * 0.8 + ping * 0.55), a);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.y = -2.62;
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    return { mesh, uniforms };
+  })();
+
+  boot.line("BAKING TEXTURES");
+
+  /* =====================================================================
+     4. Cards — procedural imagery, revealed by a scan line
+     ===================================================================== */
+
+  /* Render-to-texture, used once per card at startup. Keeping the imagery in
+     the GPU means the page ships no binary payload and still has something
+     worth revealing. */
+  const rtScene = new THREE.Scene();
+  const rtCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const rtQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null);
+  rtScene.add(rtQuad);
+
+  function renderToTexture(width, height, fragmentShader, uniforms) {
+    const target = new THREE.WebGLRenderTarget(width, height, {
+      magFilter: THREE.LinearFilter,
+      minFilter: THREE.LinearMipmapLinearFilter,
+      generateMipmaps: true,
+      depthBuffer: false,
+      stencilBuffer: false,
+    });
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      fragmentShader,
+    });
+    rtQuad.material = material;
+    const prev = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
+    renderer.render(rtScene, rtCamera);
+    renderer.setRenderTarget(prev);
+    material.dispose();
+    target.texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    return target.texture;
+  }
+
+  const CARD_IMAGE_FRAG = /* glsl */ `
+    varying vec2 vUv;
+    uniform float uSeed;
+    uniform vec3 uScan;
+    uniform vec3 uAmber;
+    ${GLSL_COMMON}
+
+    void main() {
+      vec2 uv = vUv;
+      vec3 q = vec3(uv * 2.6, uSeed);
+
+      // Two rounds of domain warping: the first bends the field, the second
+      // shears it, which is what produces the folded, strata-like look.
+      float w1 = fbm(q);
+      float w2 = fbm(q + vec3(w1 * 1.7, w1 * 1.1, 0.37));
+      float v = fbm(q * 1.9 + vec3(w2 * 2.4, w2 * 1.8, 1.9));
+
+      float strata = fbm(vec3(uv.x * 1.4, uv.y * 9.0 + w2 * 2.2, uSeed * 3.1));
+      float vein = smoothstep(0.52, 0.5, abs(w2 - 0.5)) * smoothstep(0.35, 0.7, v);
+
+      vec3 deep = vec3(0.007, 0.016, 0.030);
+      vec3 mid = vec3(0.028, 0.095, 0.140);
+      vec3 col = mix(deep, mid, smoothstep(0.32, 0.80, v));
+      col = mix(col, uScan * 0.30, smoothstep(0.58, 0.94, w2) * 0.8);
+      col += uAmber * vein * 0.30;
+      col += uScan * pow(strata, 3.6) * 0.30;
+
+      // A slow luminance gradient plus a corner vignette, so the card has a
+      // light direction of its own rather than reading as flat noise.
+      col *= 0.45 + 0.55 * pow(1.0 - uv.y, 0.8);
+      float vig = smoothstep(1.35, 0.35, length((uv - 0.5) * vec2(1.0, 1.25)) * 2.0);
+      col *= 0.3 + vig * 0.8;
+
+      // Scrim under the type. Without it the label competes with whatever the
+      // noise happened to put in the lower third.
+      col *= 0.09 + smoothstep(0.03, 0.46, uv.y) * 0.91;
+
+      col += (hash13(vec3(uv * 900.0, uSeed)) - 0.5) * 0.018;
+
+      gl_FragColor = vec4(max(col, 0.0), 1.0);
+    }
+  `;
+
+  /* Card labels are 2D canvas, because text is the one thing a fragment shader
+     has no business drawing. */
+  function labelTexture(lines) {
+    const w = 512;
+    const h = 660;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const g = c.getContext("2d");
+    g.clearRect(0, 0, w, h);
+
+    const mono = '600 20px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const monoSmall = '400 17px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+    g.textBaseline = "alphabetic";
+
+    // index tag, top left
+    g.font = monoSmall;
+    g.fillStyle = "rgba(127, 230, 255, 0.75)";
+    g.fillText(lines.tag, 34, 56);
+
+    // rule under the tag
+    g.fillStyle = "rgba(150, 220, 255, 0.28)";
+    g.fillRect(34, 74, w - 68, 1);
+
+    // title
+    g.font = mono;
+    g.fillStyle = "rgba(232, 243, 250, 0.95)";
+    g.letterSpacing = "3px";
+    g.fillText(lines.title.toUpperCase(), 34, h - 168);
+    g.letterSpacing = "0px";
+
+    // value
+    g.font = '300 62px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    g.fillStyle = "#ffffff";
+    g.fillText(lines.value, 34, h - 100);
+
+    // unit, trailing the value
+    const valueWidth = g.measureText(lines.value).width;
+    g.font = monoSmall;
+    g.fillStyle = "rgba(255, 180, 92, 0.9)";
+    g.fillText(lines.unit, 34 + valueWidth + 12, h - 100);
+
+    // caption
+    g.font = monoSmall;
+    g.fillStyle = "rgba(223, 233, 242, 0.42)";
+    g.fillText(lines.caption, 34, h - 56);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    return tex;
+  }
+
+  const CARD_W = 1.62;
+  const CARD_H = 2.08;
+
+  const cardDefs = [
+    {
+      position: new THREE.Vector3(-3.55, 2.15, 1.35),
+      rotation: new THREE.Euler(0.02, 0.5, -0.05),
+      anchor: new THREE.Vector3(-1.1, 1.5, 0.35),
+      delay: 0.0,
+    },
+    {
+      position: new THREE.Vector3(3.5, 0.55, 0.15),
+      rotation: new THREE.Euler(-0.03, -0.52, 0.04),
+      anchor: new THREE.Vector3(1.15, 0.6, 0.1),
+      delay: 0.35,
+    },
+    {
+      position: new THREE.Vector3(1.35, 3.65, -2.6),
+      rotation: new THREE.Euler(0.06, -0.24, 0.03),
+      anchor: new THREE.Vector3(0.6, 2.7, -0.75),
+      delay: 0.7,
+    },
+  ];
+
+  const CARD_FRAG = /* glsl */ `
+    varying vec2 vUv;
+    uniform sampler2D uImage;
+    uniform sampler2D uLabel;
+    uniform float uLoad;
+    uniform float uTime;
+    uniform float uHover;
+    uniform float uAspect;
+    uniform vec3 uScan;
+    uniform vec3 uAmber;
+    ${GLSL_COMMON}
+
+    void main() {
+      vec2 p = vUv * 2.0 - 1.0;
+      vec2 q = p * vec2(uAspect, 1.0);
+      float d = sdRoundBox(q, vec2(uAspect, 1.0) - 0.018, 0.11);
+      if (d > 0.0) discard;
+
+      // The scan line walks from the top edge down as the card loads.
+      float line = 1.0 - uLoad;
+      float past = vUv.y - line;
+      float revealed = smoothstep(-0.004, 0.004, past);
+      float age = clamp(past * 5.5, 0.0, 1.0);
+
+      // --- placeholder, shown ahead of the line --------------------------
+      float bar = step(0.55, fract(vUv.y * 13.0)) * step(fract(vUv.x * 1.7 + floor(vUv.y * 13.0) * 0.37), 0.62);
+      float shimmer = sin((vUv.x * 3.4 - uTime * 0.9) * 3.14159) * 0.5 + 0.5;
+      vec3 skeleton = vec3(0.010, 0.019, 0.029);
+      skeleton += vec3(0.018, 0.044, 0.062) * bar * (0.25 + shimmer * 0.85);
+      skeleton += vec3(0.012, 0.030, 0.042) * hash13(vec3(floor(vUv * 220.0), floor(uTime * 24.0)));
+
+      // --- the image, resolving as it clears the line ---------------------
+      // Blocky and colour-split right at the line, sharp a little below it.
+      float pixels = mix(26.0, 900.0, pow(age, 0.6));
+      vec2 blocky = floor(vUv * pixels) / pixels + 0.5 / pixels;
+      vec2 suv = mix(blocky, vUv, smoothstep(0.15, 0.85, age));
+      float split = exp(-age * 7.0) * 0.014;
+      vec3 image = vec3(
+        texture2D(uImage, suv + vec2(split, 0.0)).r,
+        texture2D(uImage, suv).g,
+        texture2D(uImage, suv - vec2(split, 0.0)).b
+      );
+      image = mix(vec3(dot(image, vec3(0.33))) * 0.85, image, smoothstep(0.0, 0.7, age));
+      image += uScan * exp(-age * 5.0) * 0.10;
+
+      vec3 col = mix(skeleton, image, revealed);
+
+      // Interlace, only while there is still something to load.
+      float loading = step(0.001, uLoad) * step(uLoad, 0.999);
+      float interlace = sin(vUv.y * 620.0) * 0.5 + 0.5;
+      col *= 1.0 - interlace * 0.06 * loading;
+
+      // The scan line itself, plus the soft bloom it throws forward.
+      float glow = exp(-abs(past) * 90.0);
+      float ahead = exp(-max(-past, 0.0) * 16.0) * step(past, 0.0);
+      col += uScan * (glow * 1.5 + ahead * 0.10) * loading;
+
+      // --- label ----------------------------------------------------------
+      vec4 label = texture2D(uLabel, vUv);
+      col = mix(col, label.rgb * 1.08, label.a * revealed);
+
+      // --- frame and hover -------------------------------------------------
+      float border = smoothstep(-0.014, -0.001, d);
+      col += mix(uScan * 0.22, uScan * 0.7, uHover) * border;
+
+      // A sheen that sweeps across on hover, angled so it reads as a highlight.
+      float sheen = exp(-pow((vUv.x + vUv.y * 0.55 - fract(uTime * 0.32) * 2.1) * 3.2, 2.0));
+      col += uScan * sheen * uHover * 0.2;
+      col += uAmber * uHover * 0.045;
+
+      // Corner ticks: small, but they make the card read as an instrument.
+      vec2 corner = abs(q) - (vec2(uAspect, 1.0) - 0.075);
+      float tick = step(-0.005, max(corner.x, corner.y)) *
+                   step(max(corner.x, corner.y), 0.055) *
+                   step(0.0, min(corner.x, corner.y) + 0.16);
+      col += uScan * tick * (0.35 + uHover * 0.9);
+
+      float alpha = smoothstep(0.0, -0.008, d);
+      gl_FragColor = vec4(col, alpha);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }
+  `;
+
+  const cardGroup = new THREE.Group();
+  scene.add(cardGroup);
+
+  const cards = cardDefs.map((def, i) => {
+    const image = renderToTexture(640, 820, CARD_IMAGE_FRAG, {
+      uSeed: { value: 11.3 + i * 17.77 },
+      uScan: { value: CFG.scan },
+      uAmber: { value: CFG.amber },
+    });
+
+    const uniforms = {
+      uImage: { value: image },
+      uLabel: { value: null }, // filled in once the real scene stats exist
+      uLoad: { value: 0 },
+      uTime: { value: 0 },
+      uHover: { value: 0 },
+      uAspect: { value: CARD_W / CARD_H },
+      uScan: { value: CFG.scan },
+      uAmber: { value: CFG.amber },
+    };
+
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(CARD_W, CARD_H),
+      new THREE.ShaderMaterial({
+        uniforms,
+        transparent: true,
+        depthWrite: true,
+        side: THREE.DoubleSide,
+        vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: CARD_FRAG,
+      })
+    );
+    mesh.position.copy(def.position);
+    mesh.rotation.copy(def.rotation);
+    mesh.userData.card = i;
+    mesh.visible = false; // the timeline turns each one on when its load starts
+    cardGroup.add(mesh);
+
+    return {
+      mesh,
+      uniforms,
+      home: def.position.clone(),
+      baseRotation: def.rotation.clone(),
+      anchor: def.anchor.clone(),
+      delay: def.delay,
+      load: 0,
+      hover: 0,
+      bob: i * 2.1,
+    };
+  });
+
+  /* Hairlines tying each card back to the branch, with a pulse running along
+     them. They are what makes the cards read as annotations of the object
+     rather than as posters floating nearby. */
+  const tethers = (() => {
+    const positions = new Float32Array(cards.length * 6);
+    const ends = new Float32Array(cards.length * 2);
+    const idx = new Float32Array(cards.length * 2);
+    cards.forEach((card, i) => {
+      ends[i * 2] = 0;
+      ends[i * 2 + 1] = 1;
+      idx[i * 2] = i;
+      idx[i * 2 + 1] = i;
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("aEnd", new THREE.BufferAttribute(ends, 1));
+    geometry.setAttribute("aIndex", new THREE.BufferAttribute(idx, 1));
+    const uniforms = {
+      uTime: { value: 0 },
+      uOpacity: { value: 0 },
+      uScan: { value: CFG.scan },
+    };
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms,
+      vertexShader: `
+        attribute float aEnd;
+        attribute float aIndex;
+        varying float vEnd;
+        varying float vIndex;
+        void main() {
+          vEnd = aEnd;
+          vIndex = aIndex;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uOpacity;
+        uniform vec3 uScan;
+        varying float vEnd;
+        varying float vIndex;
+        void main() {
+          float pulse = fract(uTime * 0.45 - vIndex * 0.31);
+          float head = exp(-pow((vEnd - pulse) * 7.0, 2.0));
+          float a = uOpacity * (0.12 + head * 0.8) * (0.35 + vEnd * 0.65);
+          gl_FragColor = vec4(uScan * (0.7 + head * 2.2), a);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+    const mesh = new THREE.LineSegments(geometry, material);
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    return { mesh, geometry, uniforms };
+  })();
+
+  /* =====================================================================
+     5. Butterfly — flies to the branch, bolts when the pointer nears it
+     ===================================================================== */
+
+  const butterfly = (() => {
+    const root = new THREE.Group();
+    root.scale.setScalar(0.5);
+    root.visible = false;
+    scene.add(root);
+
+    const body = new THREE.Group();
+    root.add(body);
+
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: 0x140f0b,
+      roughness: 0.55,
+      metalness: 0.15,
+      emissive: new THREE.Color("#3a1f10"),
+      emissiveIntensity: 0.35,
+    });
+
+    const abdomen = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), bodyMaterial);
+    abdomen.scale.set(0.05, 0.055, 0.2);
+    abdomen.position.z = -0.08;
+    body.add(abdomen);
+
+    const thorax = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), bodyMaterial);
+    thorax.scale.set(0.07, 0.07, 0.09);
+    body.add(thorax);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), bodyMaterial);
+    head.scale.setScalar(0.05);
+    head.position.z = 0.1;
+    body.add(head);
+
+    const antennaMaterial = new THREE.LineBasicMaterial({
+      color: 0x2a1d14,
+      transparent: true,
+      opacity: 0.9,
+    });
+    for (const side of [-1, 1]) {
+      const g = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(side * 0.02, 0.03, 0.12),
+        new THREE.Vector3(side * 0.07, 0.11, 0.2),
+        new THREE.Vector3(side * 0.12, 0.15, 0.26),
+      ]);
+      body.add(new THREE.Line(g, antennaMaterial));
+    }
+
+    // Wing blank: root at x=0, blade out along +x, lying in the XZ plane so a
+    // rotation about Z is a flap.
+    // 1 x 2 so that uv.x over [0,1] and uv.y*2-1 over [-1,1] measure the same
+    // world distance; the silhouette below is described in that square.
+    const wingGeometry = new THREE.PlaneGeometry(1, 2, 16, 16);
+    wingGeometry.translate(0.5, -0.06, 0);
+    wingGeometry.rotateX(Math.PI / 2);
+
+    const wingUniforms = {
+      uTime: { value: 0 },
+      uCurl: { value: 0 },
+      uScan: { value: CFG.scan },
+      uAmber: { value: CFG.amber },
+      uReveal: { value: 1 },
+    };
+
+    const wingMaterial = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: true,
+      uniforms: wingUniforms,
+      vertexShader: /* glsl */ `
+        uniform float uCurl;
+        varying vec2 vUv;
+        varying vec3 vWorld;
+        void main() {
+          vUv = uv;
+          // Tip curl on top of the rigid flap the object graph applies: the
+          // wing bends more the further it is from the body.
+          float t = uv.x;
+          float a = uCurl * t * t;
+          float s = sin(a), c = cos(a);
+          vec3 p = position;
+          p = vec3(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
+          vec4 world = modelMatrix * vec4(p, 1.0);
+          vWorld = world.xyz;
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform vec3 uScan;
+        uniform vec3 uAmber;
+        uniform float uReveal;
+        varying vec2 vUv;
+        varying vec3 vWorld;
+        ${GLSL_COMMON}
+
+        void main() {
+          float x = vUv.x;                 // 0 at the body, 1 at the tip
+          float y = vUv.y * 2.0 - 1.0;     // -1 trailing, +1 leading
+
+          // The silhouette is a radius profile in polar coordinates around the
+          // wing root: a long forewing lobe, a shorter hindwing lobe, and a
+          // notch between them. Super-Gaussians rather than plain ones, so each
+          // lobe has a broad top and a decisive edge instead of a petal point.
+          vec2 rel = vec2(x, y) - vec2(0.02, -0.02);
+          float a = atan(rel.y, rel.x);
+          float rad = length(rel);
+
+          float fore = 1.02 * exp(-pow(abs(a - 0.62) / 0.72, 4.0));
+          float hind = 0.66 * exp(-pow(abs(a + 0.92) / 0.50, 4.0));
+          float R = max(fore, hind);
+          R *= 1.0 - 0.34 * exp(-pow((a + 0.16) / 0.16, 2.0));   // notch on the trailing edge
+          R *= 1.0 - 0.035 * sin(a * 26.0);                       // scalloped margin
+          if (rad > R || x < 0.0) discard;
+
+          float u = rad / max(R, 0.001);    // 0 at the wing root, 1 at the edge
+          float grain = fbm(vec3(vUv * 8.0, 3.1));
+
+          // Iridescence: the geometric normal comes from the derivative of the
+          // world position, so the tip curl shows up in the shimmer for free.
+          vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+          vec3 v = normalize(cameraPosition - vWorld);
+          float fres = pow(1.0 - abs(dot(n, v)), 2.4);
+
+          vec3 ink = vec3(0.014, 0.010, 0.008);
+          vec3 plate = mix(uAmber * 0.82, uAmber * 0.20, smoothstep(0.1, 0.95, u));
+          plate *= 0.6 + grain * 0.3;
+
+          // The dark margin is what carries the silhouette at small sizes.
+          float margin = smoothstep(0.72, 0.97, u);
+          vec3 col = mix(plate, ink, margin);
+
+          // Pale spots set into that margin, discrete rather than a rim.
+          // Round, not radial: the angular and radial windows have to be
+          // comparable in arc length or the spots draw as streaks.
+          float spots = smoothstep(0.86, 1.0, sin(a * 40.0) * 0.5 + 0.5) *
+                        exp(-pow((u - 0.895) * 55.0, 2.0));
+          col += vec3(0.72, 0.69, 0.63) * spots * 0.6;
+
+          // Veins fanning from the root, gone by the time they reach the edge.
+          float vein = smoothstep(0.90, 1.0, sin(a * 21.0 + 0.4) * 0.5 + 0.5);
+          col = mix(col, ink, vein * smoothstep(0.10, 0.5, u) * (1.0 - margin) * 0.8);
+
+          // A band across the forewing, the way most of them carry one.
+          float band = smoothstep(0.07, 0.0, abs(u - 0.6)) * smoothstep(0.1, 0.5, a);
+          col = mix(col, ink, band * 0.5);
+
+          // Eyespot, seated inside the hindwing lobe.
+          float eye = length((vec2(x, y) - vec2(0.26, -0.31)) / vec2(0.10, 0.10));
+          col = mix(col, ink, smoothstep(1.0, 0.72, eye) * 0.9);
+          col += uScan * smoothstep(0.72, 0.34, eye) * smoothstep(0.14, 0.44, eye) * 0.9;
+
+          col = mix(col, uScan * 0.8, fres * 0.26);
+
+          float alpha = smoothstep(0.0, 0.02, 1.0 - u) * uReveal;
+          if (alpha < 0.02) discard;
+          gl_FragColor = vec4(col, alpha);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+
+    const wings = [];
+    for (const side of [1, -1]) {
+      const pivot = new THREE.Group();
+      pivot.scale.x = side;
+      const mesh = new THREE.Mesh(wingGeometry, wingMaterial);
+      mesh.frustumCulled = false;
+      pivot.add(mesh);
+      root.add(pivot);
+      wings.push({ pivot, side });
+    }
+
+    // Perches: the tips of the outermost branches, high enough to be visible.
+    const perches = skeleton.tips
+      .filter((t) => t.point.y > 0.4)
+      .map((t) => ({ point: t.point.clone(), dir: t.dir.clone() }));
+
+    const state = {
+      root,
+      wings,
+      uniforms: wingUniforms,
+      mode: "hidden",
+      position: new THREE.Vector3(9, 5.5, 6),
+      velocity: new THREE.Vector3(),
+      target: new THREE.Vector3(),
+      perch: perches[0] || { point: new THREE.Vector3(0, 2, 0), dir: UP.clone() },
+      flap: 0,
+      flapSpeed: 11,
+      timer: 0,
+      startle: 0,
+      lastEmit: 0,
+      perches,
+    };
+    state.root.position.copy(state.position);
+    return state;
+  })();
+
+  function pickPerch(rng) {
+    const list = butterfly.perches;
+    if (!list.length) return butterfly.perch;
+    return list[Math.floor(rng() * list.length)];
+  }
+
+  /* =====================================================================
+     6. Particles — a pointer trail and the ambient dust that sells depth
+     ===================================================================== */
+
+  const trail = (() => {
+    const count = CFG.trail;
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+    const data = new Float32Array(count * 4); // life, maxLife, size, warmth
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("aData", new THREE.BufferAttribute(data, 4));
+    geometry.setDrawRange(0, count);
+
+    const uniforms = {
+      uScale: { value: window.innerHeight * 0.5 },
+      uScan: { value: CFG.scan },
+      uAmber: { value: CFG.amber },
+    };
+
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms,
+      vertexShader: /* glsl */ `
+        attribute vec4 aData;
+        uniform float uScale;
+        varying float vLife;
+        varying float vWarm;
+        void main() {
+          float life = aData.x / max(aData.y, 0.0001);
+          vLife = life;
+          vWarm = aData.w;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mv;
+          // Particles swell slightly then shrink as they die.
+          float grow = sin(clamp(1.0 - life, 0.0, 1.0) * 3.14159);
+          gl_PointSize = aData.z * (0.35 + grow * 0.9) * (uScale / max(-mv.z, 0.001));
+          if (life <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // cull dead
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uScan;
+        uniform vec3 uAmber;
+        varying float vLife;
+        varying float vWarm;
+        void main() {
+          vec2 p = gl_PointCoord * 2.0 - 1.0;
+          float d = dot(p, p);
+          if (d > 1.0) discard;
+          float core = pow(1.0 - d, 2.6);
+          vec3 c = mix(uScan, uAmber, vWarm);
+          float a = core * vLife;
+          gl_FragColor = vec4(c * (0.6 + core * 1.8), a);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+
+    const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    scene.add(points);
+
+    let cursor = 0;
+    const tmp = new THREE.Vector3();
+
+    return {
+      uniforms,
+      emit(origin, n, opts = {}) {
+        const spread = opts.spread ?? 0.06;
+        const speed = opts.speed ?? 0.35;
+        const life = opts.life ?? 1.1;
+        const size = opts.size ?? 2.4;
+        const warm = opts.warm ?? 0.0;
+        for (let k = 0; k < n; k++) {
+          const i = cursor;
+          cursor = (cursor + 1) % count;
+          positions[i * 3] = origin.x + (Math.random() - 0.5) * spread;
+          positions[i * 3 + 1] = origin.y + (Math.random() - 0.5) * spread;
+          positions[i * 3 + 2] = origin.z + (Math.random() - 0.5) * spread;
+          tmp.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+            .normalize()
+            .multiplyScalar(speed * (0.35 + Math.random() * 0.9));
+          if (opts.velocity) tmp.add(opts.velocity);
+          velocities[i * 3] = tmp.x;
+          velocities[i * 3 + 1] = tmp.y;
+          velocities[i * 3 + 2] = tmp.z;
+          const l = life * (0.6 + Math.random() * 0.8);
+          data[i * 4] = l;
+          data[i * 4 + 1] = l;
+          data[i * 4 + 2] = size * (0.5 + Math.random());
+          data[i * 4 + 3] = warm * (0.4 + Math.random() * 0.6);
+        }
+        geometry.attributes.position.needsUpdate = true;
+        geometry.attributes.aData.needsUpdate = true;
+      },
+      update(dt) {
+        let alive = 0;
+        for (let i = 0; i < count; i++) {
+          const l = data[i * 4];
+          if (l <= 0) continue;
+          alive++;
+          const nl = l - dt;
+          data[i * 4] = nl > 0 ? nl : 0;
+          const drag = Math.exp(-2.4 * dt);
+          velocities[i * 3] *= drag;
+          velocities[i * 3 + 1] = velocities[i * 3 + 1] * drag + 0.16 * dt; // gentle lift
+          velocities[i * 3 + 2] *= drag;
+          positions[i * 3] += velocities[i * 3] * dt;
+          positions[i * 3 + 1] += velocities[i * 3 + 1] * dt;
+          positions[i * 3 + 2] += velocities[i * 3 + 2] * dt;
+        }
+        if (alive) {
+          geometry.attributes.position.needsUpdate = true;
+          geometry.attributes.aData.needsUpdate = true;
+        }
+        return alive;
+      },
+    };
+  })();
+
+  const dust = (() => {
+    const count = CFG.dust;
+    const rng = mulberry32(CFG.seed ^ 0x9e3d);
+    const positions = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      // A shell around the branch rather than a cube: no clumping at corners.
+      const r = 3.5 + Math.pow(rng(), 0.6) * 12;
+      const th = rng() * Math.PI * 2;
+      const ph = Math.acos(2 * rng() - 1);
+      positions[i * 3] = Math.sin(ph) * Math.cos(th) * r;
+      positions[i * 3 + 1] = Math.cos(ph) * r * 0.55 + 1.2;
+      positions[i * 3 + 2] = Math.sin(ph) * Math.sin(th) * r;
+      seeds[i] = rng();
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+
+    const uniforms = {
+      uTime: { value: 0 },
+      uScale: { value: window.innerHeight * 0.5 },
+      uOpacity: { value: 0 },
+      uScan: { value: CFG.scan },
+      uAmber: { value: CFG.amber },
+    };
+
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms,
+      vertexShader: /* glsl */ `
+        attribute float aSeed;
+        uniform float uTime;
+        uniform float uScale;
+        varying float vSeed;
+        varying float vFade;
+        void main() {
+          vSeed = aSeed;
+          vec3 p = position;
+          float t = uTime * (0.06 + aSeed * 0.1);
+          p.x += sin(t + aSeed * 24.0) * 0.5;
+          p.y += cos(t * 1.3 + aSeed * 17.0) * 0.4;
+          p.z += sin(t * 0.8 + aSeed * 31.0) * 0.5;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          // Fade the near field: motes right on the lens are a distraction.
+          vFade = smoothstep(2.0, 6.0, -mv.z) * smoothstep(24.0, 12.0, -mv.z);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = (0.7 + aSeed * 1.9) * (uScale / max(-mv.z, 0.001));
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uOpacity;
+        uniform vec3 uScan;
+        uniform vec3 uAmber;
+        varying float vSeed;
+        varying float vFade;
+        void main() {
+          vec2 p = gl_PointCoord * 2.0 - 1.0;
+          float d = dot(p, p);
+          if (d > 1.0) discard;
+          vec3 c = mix(uScan, uAmber, step(0.88, vSeed));
+          float a = pow(1.0 - d, 2.0) * vFade * uOpacity * (0.08 + vSeed * 0.2);
+          gl_FragColor = vec4(c, a);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+
+    const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    scene.add(points);
+    return { points, uniforms };
+  })();
+
+  /* =====================================================================
+     7. Shader-backed chrome — the nav bar and buttons are WebGL quads
+        keyed to the bounding rect of the real DOM element sitting on top
+     ===================================================================== */
+
+  const uiScene = new THREE.Scene();
+  const uiCamera = new THREE.OrthographicCamera(0, window.innerWidth, 0, window.innerHeight, -10, 10);
+
+  const UI_COMMON = /* glsl */ `
+    varying vec2 vUv;
+    uniform vec2 uSize;
+    uniform float uTime;
+    uniform float uHover;
+    uniform float uPress;
+    uniform float uReveal;
+    uniform vec2 uPointer;   // 0..1 within the element
+    uniform vec3 uScan;
+    uniform vec3 uAmber;
+    ${GLSL_COMMON}
+  `;
+
+  // Aspect-corrected element space: x in +-aspect, y in +-1, so corner radii
+  // stay circular whatever the element's proportions.
+  const UI_SETUP = /* glsl */ `
+    vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+    float aspect = uSize.x / uSize.y;
+    vec2 p = (uv * 2.0 - 1.0) * vec2(aspect, 1.0);
+  `;
+
+  const UI_VERT = /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+
+  const NAV_FRAG = /* glsl */ `
+    ${UI_COMMON}
+    void main() {
+      ${UI_SETUP}
+      float d = sdRoundBox(p, vec2(aspect, 1.0), 0.28);
+      if (d > 0.0) discard;
+
+      // Glass: a dark fill that lifts slightly toward the top edge.
+      float lift = smoothstep(-1.0, 1.0, -p.y);
+      vec3 col = mix(vec3(0.016, 0.026, 0.038), vec3(0.03, 0.05, 0.072), lift);
+
+      // Slow noise, stretched horizontally so it reads as sheen, not static.
+      float n = fbm(vec3(uv.x * 3.2 - uTime * 0.06, uv.y * 1.6, uTime * 0.05));
+      col += uScan * n * 0.05;
+
+      // The pointer carries a soft light along the bar.
+      float near = exp(-pow((uv.x - uPointer.x) * 3.4, 2.0)) * uHover;
+      col += uScan * near * 0.09;
+
+      // Hairline top and bottom, brighter under the pointer.
+      float edge = smoothstep(-0.055, 0.0, d);
+      col += uScan * edge * (0.16 + near * 0.5);
+
+      // Travelling tick, so the bar is never completely static.
+      float tick = exp(-pow((uv.x - fract(uTime * 0.07)) * 90.0, 2.0));
+      col += uScan * tick * smoothstep(-0.06, -0.01, d) * 0.7;
+
+      float alpha = (0.55 + edge * 0.35 + uHover * 0.08) * uReveal;
+      gl_FragColor = vec4(col, alpha);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }
+  `;
+
+  const BUTTON_FRAG = /* glsl */ `
+    ${UI_COMMON}
+    uniform float uGhost;
+    void main() {
+      ${UI_SETUP}
+      float d = sdRoundBox(p, vec2(aspect, 1.0) - 0.03, 0.22);
+      if (d > 0.02) discard;
+
+      // Liquid fill: warped fbm drifting left, hotter under the pointer.
+      vec3 q = vec3(uv * vec2(2.4, 1.6), uTime * 0.12);
+      float w = fbm(q + vec3(fbm(q * 1.7) * 1.4));
+      float body = smoothstep(0.28, 0.86, w);
+
+      vec3 fill = mix(vec3(0.02, 0.06, 0.09), uScan * 0.5, body);
+      fill = mix(fill, uAmber * 0.42, smoothstep(0.72, 1.0, w) * 0.5);
+
+      // Hover ripple, expanding from wherever the pointer entered.
+      float rd = length((uv - uPointer) * vec2(aspect, 1.0));
+      float ripple = exp(-pow((rd - uPress * 2.2) * 3.0, 2.0)) * (1.0 - uPress);
+      float focus = exp(-rd * 2.2) * uHover;
+
+      vec3 col = fill * (0.35 + uHover * 0.9);
+      col += uScan * focus * 0.5;
+      col += uScan * ripple * 0.9;
+
+      float edge = smoothstep(-0.05, 0.0, d);
+      col += mix(uScan * 0.55, uScan, uHover) * edge;
+
+      // A single highlight travelling the border, clockwise.
+      float perimeter = atan(p.y, p.x) / 6.2831853 + 0.5;
+      float runner = exp(-pow((fract(perimeter - uTime * 0.14)) * 12.0, 2.0));
+      col += uScan * runner * edge * 1.6;
+
+      float base = mix(0.5, 0.12, uGhost);
+      float alpha = (base + edge * 0.45 + uHover * 0.28) * uReveal;
+      alpha *= smoothstep(0.02, -0.004, d);
+      gl_FragColor = vec4(col, alpha);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }
+  `;
+
+  function makeUiQuad(el, fragmentShader, extraUniforms = {}) {
+    const uniforms = Object.assign(
+      {
+        uSize: { value: new THREE.Vector2(1, 1) },
+        uTime: { value: 0 },
+        uHover: { value: 0 },
+        uPress: { value: 0 },
+        uReveal: { value: 0 },
+        uPointer: { value: new THREE.Vector2(0.5, 0.5) },
+        uScan: { value: CFG.scan },
+        uAmber: { value: CFG.amber },
+      },
+      extraUniforms
+    );
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: UI_VERT,
+        fragmentShader,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+    mesh.renderOrder = 10;
+    uiScene.add(mesh);
+    return { el, mesh, uniforms, rect: null, hover: 0, press: 0, pointer: new THREE.Vector2(0.5, 0.5) };
+  }
+
+  const uiQuads = [
+    makeUiQuad(document.getElementById("nav"), NAV_FRAG),
+    makeUiQuad(document.getElementById("btn-primary"), BUTTON_FRAG, { uGhost: { value: 0 } }),
+    makeUiQuad(document.getElementById("btn-ghost"), BUTTON_FRAG, { uGhost: { value: 1 } }),
+  ];
+
+  function syncUiQuads() {
+    for (const q of uiQuads) {
+      const r = q.el.getBoundingClientRect();
+      q.rect = r;
+      q.mesh.position.set(r.left + r.width / 2, r.top + r.height / 2, 0);
+      q.mesh.scale.set(r.width, r.height, 1);
+      q.uniforms.uSize.value.set(r.width, r.height);
+    }
+  }
+
+  /* =====================================================================
+     8. Card labels, written from what the scene actually contains
+     ===================================================================== */
+
+  const stats = (() => {
+    let triangles = 0;
+    scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const g = o.geometry;
+      if (!g) return;
+      const n = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+      triangles += n * (o.isInstancedMesh ? o.count : 1);
+    });
+    return {
+      branches: skeleton.branches.length,
+      nodes: scanPointGeometry.attributes.position.count,
+      leaves: leaves.mesh.count,
+      triangles: Math.round(triangles),
+    };
+  })();
+
+  const compact = (n) =>
+    n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
+
+  const cardCopy = [
+    {
+      tag: "01 / TOPOLOGY",
+      title: "Branch segments",
+      value: String(stats.branches),
+      unit: "tubes",
+      caption: `grown from seed ${CFG.seed}`,
+    },
+    {
+      tag: "02 / SURFACE",
+      title: "Scan nodes",
+      value: compact(stats.nodes),
+      unit: "pts",
+      caption: "sampled off the tube mesh",
+    },
+    {
+      tag: "03 / RUNTIME",
+      title: "Triangles",
+      value: compact(stats.triangles),
+      unit: "tris",
+      caption: `${stats.leaves} instanced leaves`,
+    },
+  ];
+
+  cards.forEach((card, i) => {
+    card.uniforms.uLabel.value = labelTexture(cardCopy[i]);
+  });
+
+  document.getElementById("hud-nodes").textContent = compact(stats.nodes);
+
+  /* =====================================================================
+     9. Post-processing — bloom if the addons bundle is reachable, and a
+        scene that still reads correctly if it is not
+     ===================================================================== */
+
+  let composer = null;
+  let bloomPass = null;
+  try {
+    const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] =
+      await Promise.all([
+        import("three/addons/postprocessing/EffectComposer.js"),
+        import("three/addons/postprocessing/RenderPass.js"),
+        import("three/addons/postprocessing/UnrealBloomPass.js"),
+        import("three/addons/postprocessing/OutputPass.js"),
+      ]);
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.42, // strength
+      0.5, // radius
+      0.42 // threshold
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    composer.setPixelRatio(renderer.getPixelRatio());
+    composer.setSize(window.innerWidth, window.innerHeight);
+  } catch (err) {
+    // Not fatal: the additive passes carry most of the glow on their own.
+    console.warn("Post-processing unavailable, falling back to direct render.", err);
+    composer = null;
+  }
+
+  /* =====================================================================
+     10. Input
+     ===================================================================== */
+
+  const raycaster = new THREE.Raycaster();
+  const focusPlane = new THREE.Plane();
+  const tmpVec = new THREE.Vector3();
+  const tmpVec2 = new THREE.Vector3();
+  const tmpObject = new THREE.Object3D();
+  const tmpQuat = new THREE.Quaternion();
+  const lastEmitPoint = new THREE.Vector3();
+
+  document.body.style.cursor = "none";
+  const cursorEl = document.createElement("div");
+  Object.assign(cursorEl.style, {
+    position: "fixed",
+    left: "0px",
+    top: "0px",
+    width: "26px",
+    height: "26px",
+    marginLeft: "-13px",
+    marginTop: "-13px",
+    border: "1px solid rgba(127, 230, 255, 0.5)",
+    borderRadius: "50%",
+    pointerEvents: "none",
+    zIndex: "4",
+    opacity: "0",
+    transform: "translate3d(-100px, -100px, 0)",
+    transition: "opacity 300ms ease, width 220ms cubic-bezier(.22,1,.36,1), height 220ms cubic-bezier(.22,1,.36,1), margin 220ms cubic-bezier(.22,1,.36,1), border-color 220ms ease",
+    mixBlendMode: "screen",
+  });
+  document.body.appendChild(cursorEl);
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  if (coarsePointer) {
+    document.body.style.cursor = "auto";
+    cursorEl.style.display = "none";
+  }
+
+  function setCursorSize(px, colour) {
+    cursorEl.style.width = `${px}px`;
+    cursorEl.style.height = `${px}px`;
+    cursorEl.style.marginLeft = `${-px / 2}px`;
+    cursorEl.style.marginTop = `${-px / 2}px`;
+    cursorEl.style.borderColor = colour;
+  }
+
+  function pointerWorld(out) {
+    // The trail lives on a plane through the orbit target, facing the camera,
+    // so particles interleave with the branch instead of floating over it.
+    camera.getWorldDirection(tmpVec);
+    focusPlane.setFromNormalAndCoplanarPoint(tmpVec, CFG.target);
+    raycaster.setFromCamera(pointer.ndc, camera);
+    return raycaster.ray.intersectPlane(focusPlane, out) ? out : null;
+  }
+
+  function onPointerMove(event) {
+    pointer.px.set(event.clientX, event.clientY);
+    pointer.ndc.set(
+      (event.clientX / window.innerWidth) * 2 - 1,
+      -(event.clientY / window.innerHeight) * 2 + 1
+    );
+    pointer.inside = true;
+    pointer.moved = true;
+    cursorEl.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
+    cursorEl.style.opacity = "1";
+
+    if (rig.dragging) {
+      const dx = event.clientX - rig.lastX;
+      const dy = event.clientY - rig.lastY;
+      rig.lastX = event.clientX;
+      rig.lastY = event.clientY;
+      rig.targetTheta -= dx * 0.005;
+      rig.targetPhi = clamp(rig.targetPhi - dy * 0.005, 0.35, 2.35);
+      rig.userTouched = true;
+    }
+
+    for (const q of uiQuads) {
+      const r = q.rect;
+      if (!r) continue;
+      const inside =
+        event.clientX >= r.left &&
+        event.clientX <= r.right &&
+        event.clientY >= r.top &&
+        event.clientY <= r.bottom;
+      q.hoverTarget = inside ? 1 : 0;
+      if (inside) {
+        q.pointer.set((event.clientX - r.left) / r.width, (event.clientY - r.top) / r.height);
+      }
+    }
+  }
+
+  window.addEventListener("pointermove", onPointerMove, { passive: true });
+  window.addEventListener("pointerleave", () => {
+    pointer.inside = false;
+    cursorEl.style.opacity = "0";
+  });
+
+  window.addEventListener("pointerdown", (event) => {
+    pointer.down = true;
+    if (event.target.closest("button, a")) return; // let the control have it
+    rig.dragging = true;
+    rig.lastX = event.clientX;
+    rig.lastY = event.clientY;
+    onPointerMove(event);
+    if (hovered.card !== null) {
+      const card = cards[hovered.card];
+      card.load = 0;
+      card.loading = true;
+    }
+  });
+
+  window.addEventListener("pointerup", () => {
+    pointer.down = false;
+    rig.dragging = false;
+  });
+
+  window.addEventListener(
+    "wheel",
+    (event) => {
+      rig.targetRadius = clamp(
+        rig.targetRadius * Math.exp(event.deltaY * 0.0011),
+        CFG.camera.minRadius,
+        CFG.camera.maxRadius
+      );
+      rig.userTouched = true;
+    },
+    { passive: true }
+  );
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "r" || event.key === "R") reloadCards();
+    if (event.key === "Escape" && intro.running) skipIntro();
+  });
+
+  const hovered = { card: null };
+
+  document.getElementById("btn-primary").addEventListener("click", () => startIntro());
+  document.getElementById("btn-ghost").addEventListener("click", () => reloadCards());
+  for (const link of document.querySelectorAll(".nav__links a")) {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      reloadCards();
+    });
+  }
+
+  function reloadCards() {
+    for (const card of cards) {
+      card.load = 0;
+      card.loading = true;
+      card.started = true;
+      card.mesh.visible = true;
+    }
+  }
+
+  /* =====================================================================
+     11. Intro timeline — points sweep, wireframe draws, surface dissolves in
+     ===================================================================== */
+
+  const T = {
+    scanStart: 0.45,
+    scanDur: 2.35,
+    wireStart: 0.95,
+    wireDur: 2.15,
+    solidStart: 1.85,
+    solidDur: 2.35,
+    wireFade: 2.85,
+    wireFadeDur: 1.7,
+    leafStart: 2.65,
+    leafDur: 2.3,
+    uiStart: 3.15,
+    uiDur: 1.1,
+    cardStart: 3.55,
+    flyStart: 4.1,
+    end: 6.4,
+  };
+
+  const intro = { time: 0, running: true, firstRun: true };
+  const uiRoot = document.getElementById("ui");
+  const maxScanDist = scanPointGeometry.userData.maxDist;
+
+  function startIntro() {
+    intro.time = 0;
+    intro.running = true;
+    rig.userTouched = false;
+    for (const card of cards) {
+      card.load = 0;
+      card.loading = false;
+      card.started = false;
+      card.mesh.visible = false;
+    }
+    butterfly.mode = "hidden";
+    butterfly.root.visible = false;
+    butterfly.position.set(9.5, 5.5, 6.5);
+    butterfly.velocity.set(0, 0, 0);
+  }
+
+  function skipIntro() {
+    intro.time = T.end;
+  }
+
+  function updateIntro(dt) {
+    if (!intro.running) return;
+    intro.time += dt;
+    const t = prefersReducedMotion ? T.end : intro.time;
+    const at = (start, dur) => clamp((t - start) / dur, 0, 1);
+
+    // Overshoot on purpose. A front that stops exactly at the furthest vertex
+    // leaves the tips sitting inside their own leading-edge flare forever.
+    const sweep = easeOutCubic(at(T.scanStart, T.scanDur)) * maxScanDist * 1.3;
+    scanUniforms.uFront.value = sweep;
+    ground.uniforms.uFront.value = sweep;
+
+    wireMaterial.uniforms.uWire.value = easeInOutCubic(at(T.wireStart, T.wireDur)) * 1.2;
+    branchUniforms.uReveal.value = easeInOutCubic(at(T.solidStart, T.solidDur)) * 1.25;
+    leaves.uniforms.uReveal.value = easeOutCubic(at(T.leafStart, T.leafDur)) * 1.25;
+
+    // The wireframe hands over to the solid: it is a scaffold, not a layer.
+    const handover = at(T.wireFade, T.wireFadeDur);
+    wireMaterial.uniforms.uOpacity.value = 1 - handover;
+    // The points never leave entirely — the residual ping is what keeps the
+    // finished scene feeling instrumented.
+    scanUniforms.uOpacity.value = lerp(1, 0.2, handover);
+    ground.uniforms.uOpacity.value = lerp(1, 0.6, handover);
+    // The leading edge is a sweep artefact; once the sweep is over it has no
+    // business still burning a ring into the floor.
+    ground.uniforms.uLead.value = 1 - handover;
+    dust.uniforms.uOpacity.value = at(0.3, 2.4);
+    tethers.uniforms.uOpacity.value = at(T.cardStart + 0.4, 1.3);
+
+    const uiReveal = intro.firstRun ? at(T.uiStart, T.uiDur) : 1;
+    for (const q of uiQuads) q.uniforms.uReveal.value = uiReveal;
+    if (uiReveal > 0.02) uiRoot.dataset.ready = "1";
+
+    for (const card of cards) {
+      if (!card.started && t >= T.cardStart + card.delay) {
+        card.started = true;
+        card.loading = true;
+        card.mesh.visible = true;
+      }
+    }
+
+    if (butterfly.mode === "hidden" && t >= T.flyStart) {
+      butterfly.mode = "approach";
+      butterfly.root.visible = true;
+      butterfly.perch = pickPerch(Math.random);
+      butterfly.target.copy(butterfly.perch.point);
+    }
+
+    // The camera pushes in over the whole sweep, unless the viewer takes over.
+    if (!rig.userTouched) {
+      const k = easeInOutCubic(clamp(t / (T.end * 0.92), 0, 1));
+      rig.targetRadius = lerp(18.5, CFG.camera.radius, k);
+      rig.targetPhi = lerp(1.5, CFG.camera.phi, k);
+      rig.targetTheta = lerp(CFG.camera.theta - 0.75, CFG.camera.theta, k);
+    }
+
+    if (t >= T.end) {
+      intro.running = false;
+      intro.firstRun = false;
+      uiRoot.dataset.ready = "1";
+      for (const q of uiQuads) q.uniforms.uReveal.value = 1;
+    }
+  }
+
+  /* =====================================================================
+     12. Per-frame updates
+     ===================================================================== */
+
+  function updateCamera(dt, time) {
+    pointer.smooth.x = damp(pointer.smooth.x, pointer.inside ? pointer.ndc.x : 0, 3.0, dt);
+    pointer.smooth.y = damp(pointer.smooth.y, pointer.inside ? pointer.ndc.y : 0, 3.0, dt);
+
+    // Parallax rides on top of whatever the drag left behind.
+    const driftTheta = -pointer.smooth.x * 0.3;
+    const driftPhi = pointer.smooth.y * 0.17;
+
+    rig.theta = damp(rig.theta, rig.targetTheta + driftTheta, 4.2, dt);
+    rig.phi = damp(rig.phi, clamp(rig.targetPhi + driftPhi, 0.35, 2.3), 4.2, dt);
+    rig.radius = damp(rig.radius, rig.targetRadius, 3.6, dt);
+
+    const breathe = Math.sin(time * 0.09) * 0.045;
+    const sp = Math.sin(rig.phi);
+    const r = rig.radius * rig.frameScale;
+    camera.position.set(
+      CFG.target.x + r * sp * Math.sin(rig.theta + breathe),
+      CFG.target.y + r * Math.cos(rig.phi) + Math.sin(time * 0.13) * 0.12,
+      CFG.target.z + r * sp * Math.cos(rig.theta + breathe)
+    );
+    camera.lookAt(CFG.target);
+  }
+
+  function updateTrail(dt) {
+    if (pointer.moved && pointer.inside && pointerWorld(tmpVec)) {
+      const travelled = tmpVec.distanceTo(lastEmitPoint);
+      if (travelled > 0.015) {
+        const n = clamp(Math.round(travelled * 26), 1, 9);
+        trail.emit(tmpVec, n, {
+          spread: 0.05,
+          speed: 0.28,
+          life: 1.15,
+          size: 2.6,
+          warm: 0.18,
+        });
+        lastEmitPoint.copy(tmpVec);
+      }
+      pointer.world.copy(tmpVec);
+    }
+    pointer.moved = false;
+    trail.update(dt);
+  }
+
+  function updateCards(dt, time) {
+    raycaster.setFromCamera(pointer.ndc, camera);
+    const hits = pointer.inside ? raycaster.intersectObjects(cardGroup.children, false) : [];
+    hovered.card = hits.length ? hits[0].object.userData.card : null;
+
+    const positions = tethers.geometry.attributes.position.array;
+
+    cards.forEach((card, i) => {
+      if (card.loading) {
+        card.load = Math.min(1, card.load + dt / 1.45);
+        if (card.load >= 1) card.loading = false;
+      }
+      card.hover = damp(card.hover, hovered.card === i ? 1 : 0, 8, dt);
+
+      const bob = Math.sin(time * 0.55 + card.bob) * 0.09;
+      const drift = Math.cos(time * 0.37 + card.bob * 1.7) * 0.05;
+      card.mesh.position.set(
+        card.home.x + drift,
+        card.home.y + bob,
+        card.home.z + Math.sin(time * 0.31 + card.bob) * 0.05
+      );
+      // A card under the pointer leans out of the arrangement and toward you.
+      card.mesh.position.addScaledVector(
+        tmpVec2.copy(camera.position).sub(card.home).normalize(),
+        card.hover * 0.22
+      );
+      card.mesh.rotation.set(
+        card.baseRotation.x + Math.sin(time * 0.43 + card.bob) * 0.02 - card.hover * 0.03,
+        card.baseRotation.y + Math.cos(time * 0.29 + card.bob) * 0.025,
+        card.baseRotation.z + Math.sin(time * 0.51 + card.bob) * 0.012
+      );
+      card.mesh.updateMatrixWorld(true);
+
+      card.uniforms.uLoad.value = card.load;
+      card.uniforms.uTime.value = time;
+      card.uniforms.uHover.value = card.hover;
+
+      // Tether: branch anchor to the nearest point on the card's own border.
+      const local = card.mesh.worldToLocal(tmpVec.copy(card.anchor));
+      const sx = Math.abs(local.x) / (CARD_W * 0.5);
+      const sy = Math.abs(local.y) / (CARD_H * 0.5);
+      const scale = Math.max(sx, sy, 0.0001);
+      tmpVec2.set(local.x / scale, local.y / scale, 0);
+      card.mesh.localToWorld(tmpVec2);
+
+      positions[i * 6] = card.anchor.x;
+      positions[i * 6 + 1] = card.anchor.y;
+      positions[i * 6 + 2] = card.anchor.z;
+      positions[i * 6 + 3] = tmpVec2.x;
+      positions[i * 6 + 4] = tmpVec2.y;
+      positions[i * 6 + 5] = tmpVec2.z;
+    });
+
+    tethers.geometry.attributes.position.needsUpdate = true;
+  }
+
+  function updateButterfly(dt, time) {
+    const b = butterfly;
+    if (b.mode === "hidden") return;
+
+    // Screen-space proximity, not a raycast: a butterfly is a moving target and
+    // what matters is how close the pointer *looks*, not what it intersects.
+    tmpVec.copy(b.position).project(camera);
+    const onScreen = tmpVec.z < 1;
+    const sx = (tmpVec.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-tmpVec.y * 0.5 + 0.5) * window.innerHeight;
+    const screenDist = Math.hypot(sx - pointer.px.x, sy - pointer.px.y);
+    const threatened = pointer.inside && onScreen && screenDist < 115;
+
+    b.timer += dt;
+
+    if (threatened && (b.mode === "perched" || b.mode === "approach")) {
+      b.mode = "flee";
+      b.timer = 0;
+      b.startle = 1;
+      // Escape along the vector away from the camera-projected pointer, lifted,
+      // with enough lateral push that it does not simply fly at the viewer.
+      tmpVec2.copy(b.position).sub(camera.position).normalize();
+      b.target
+        .copy(b.position)
+        .addScaledVector(tmpVec2, 1.4)
+        .add(
+          new THREE.Vector3(
+            (Math.random() - 0.5) * 3.4,
+            1.6 + Math.random() * 1.6,
+            (Math.random() - 0.5) * 3.4
+          )
+        );
+      trail.emit(b.position, 22, { spread: 0.14, speed: 0.9, life: 0.9, size: 2.0, warm: 0.9 });
+    }
+
+    let speed = 1.4;
+    let accel = 2.2;
+    let flutter = 1;
+
+    switch (b.mode) {
+      case "approach": {
+        b.target.copy(b.perch.point).addScaledVector(b.perch.dir, 0.12);
+        speed = 1.5;
+        accel = 2.4;
+        if (b.position.distanceTo(b.target) < 0.2) {
+          b.mode = "perched";
+          b.timer = 0;
+          b.dwell = 5 + Math.random() * 7;
+        }
+        break;
+      }
+      case "perched": {
+        speed = 0;
+        accel = 6;
+        b.velocity.multiplyScalar(Math.exp(-8 * dt));
+        b.position.lerp(b.target, 1 - Math.exp(-9 * dt));
+        flutter = 0;
+        if (b.timer > b.dwell) {
+          b.perch = pickPerch(Math.random);
+          b.mode = "approach";
+          b.timer = 0;
+        }
+        break;
+      }
+      case "flee": {
+        speed = 3.6;
+        accel = 3.4;
+        flutter = 2.1;
+        if (b.timer > 1.6) {
+          b.mode = "circle";
+          b.timer = 0;
+          b.circleAngle = Math.atan2(b.position.z, b.position.x);
+        }
+        break;
+      }
+      case "circle": {
+        // A wide loiter around the crown until the coast is clear.
+        b.circleAngle += dt * 0.85;
+        const r = 4.6;
+        b.target.set(
+          Math.cos(b.circleAngle) * r,
+          3.2 + Math.sin(b.circleAngle * 1.7) * 0.9,
+          Math.sin(b.circleAngle) * r
+        );
+        speed = 2.3;
+        accel = 2.0;
+        flutter = 1.3;
+        if (b.timer > 3.4 && !threatened) {
+          b.perch = pickPerch(Math.random);
+          b.mode = "approach";
+          b.timer = 0;
+        }
+        break;
+      }
+    }
+
+    if (b.mode !== "perched") {
+      tmpVec.copy(b.target).sub(b.position);
+      const distance = tmpVec.length();
+      tmpVec.normalize().multiplyScalar(speed * clamp(distance * 1.4, 0.25, 1));
+      // Wander, so the path is never a straight line between two points.
+      tmpVec.x += Math.sin(time * 1.7 + 1.1) * 0.55 * flutter;
+      tmpVec.y += Math.sin(time * 5.5) * 0.42 * flutter;
+      tmpVec.z += Math.cos(time * 1.3 + 2.7) * 0.55 * flutter;
+      b.velocity.lerp(tmpVec, 1 - Math.exp(-accel * dt));
+      b.position.addScaledVector(b.velocity, dt);
+    }
+
+    b.root.position.copy(b.position);
+
+    // Heading: face the velocity in flight, face along the twig when settled.
+    if (b.mode === "perched") {
+      tmpVec.copy(b.perch.dir).normalize();
+    } else {
+      tmpVec.copy(b.velocity);
+      if (tmpVec.lengthSq() < 1e-5) tmpVec.set(0, 0, 1);
+      tmpVec.normalize();
+    }
+    tmpObject.position.copy(b.position);
+    tmpObject.up.set(0, 1, 0);
+    tmpObject.lookAt(tmpVec2.copy(b.position).add(tmpVec));
+    tmpQuat.copy(tmpObject.quaternion);
+    b.root.quaternion.slerp(tmpQuat, 1 - Math.exp(-6 * dt));
+
+    // Wingbeat: fast and deep in flight, a slow idle breath when perched.
+    b.startle = Math.max(0, b.startle - dt * 0.7);
+    const beat = b.mode === "perched" ? 1.7 : 15 + b.startle * 10;
+    const amplitude = b.mode === "perched" ? 0.34 : 1.05;
+    b.flap += dt * beat;
+    const angle = Math.sin(b.flap) * amplitude;
+    for (const wing of b.wings) wing.pivot.rotation.z = angle * wing.side;
+    // The membrane lags the bone, which is most of what makes a flap read.
+    b.uniforms.uCurl.value = Math.sin(b.flap - 0.75) * amplitude * 0.55;
+    b.uniforms.uTime.value = time;
+
+    // Glitter falls off the wings while it is running away.
+    if (b.mode === "flee" && time - b.lastEmit > 0.05) {
+      b.lastEmit = time;
+      trail.emit(b.position, 2, { spread: 0.12, speed: 0.25, life: 0.8, size: 1.6, warm: 0.85 });
+    }
+  }
+
+  /* =====================================================================
+     13. Resize, and the frame loop
+     ===================================================================== */
+
+  const drawBuffer = new THREE.Vector2();
+
+  /* gl_PointSize is in device pixels, and `uScale / -mv.z` is three's own
+     attenuation convention (drawing-buffer height over two). The extra divisor
+     just puts the per-point size values into a range that reads as a few
+     pixels rather than as world units. */
+  const POINT_SCALE_DIVISOR = 26;
+
+  function onResize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+
+    // Frame the branch by width, not height, once the viewport gets narrow.
+    rig.frameScale = clamp(1.45 / camera.aspect, 1, 2.2);
+
+    if (composer) {
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(w, h);
+    }
+
+    uiCamera.left = 0;
+    uiCamera.right = w;
+    uiCamera.top = 0;
+    uiCamera.bottom = h;
+    uiCamera.updateProjectionMatrix();
+
+    const pointScale = (renderer.getDrawingBufferSize(drawBuffer).y * 0.5) / POINT_SCALE_DIVISOR;
+    scanUniforms.uScale.value = pointScale;
+    trail.uniforms.uScale.value = pointScale;
+    dust.uniforms.uScale.value = pointScale;
+
+    syncUiQuads();
+  }
+
+  window.addEventListener("resize", onResize);
+  if (window.ResizeObserver) {
+    const observer = new ResizeObserver(() => syncUiQuads());
+    for (const q of uiQuads) observer.observe(q.el);
+  }
+  onResize();
+
+  boot.line("SWEEP READY", true);
+
+  const hudFps = document.getElementById("hud-fps");
+  const hudOrbit = document.getElementById("hud-orbit");
+
+  let clock = 0;
+  let last = performance.now();
+  let hudTimer = 0;
+  let frameCount = 0;
+  let frameAccum = 0;
+  let dprChecked = false;
+  const bootStart = performance.now();
+  let bootFinished = false;
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+
+    const raw = (now - last) / 1000;
+    last = now;
+    const dt = Math.min(raw, 0.05);
+    clock += dt;
+
+    if (!bootFinished) {
+      const p = (now - bootStart) / 620;
+      boot.progress(p);
+      if (p >= 1) {
+        boot.done();
+        bootFinished = true;
+      }
+    }
+
+    updateIntro(dt);
+    updateCamera(dt, clock);
+    updateTrail(dt);
+    updateCards(dt, clock);
+    updateButterfly(dt, clock);
+
+    scanUniforms.uTime.value = clock;
+    branchUniforms.uTime.value = clock;
+    leaves.uniforms.uTime.value = clock;
+    ground.uniforms.uTime.value = clock;
+    dust.uniforms.uTime.value = clock;
+    tethers.uniforms.uTime.value = clock;
+
+    for (const q of uiQuads) {
+      const wasHovered = q.hover > 0.5;
+      q.hover = damp(q.hover, q.hoverTarget || 0, 9, dt);
+      if (!wasHovered && q.hover > 0.5) q.pressStart = clock; // ripple on entry
+      q.uniforms.uHover.value = q.hover;
+      q.uniforms.uTime.value = clock;
+      q.uniforms.uPress.value = clamp((clock - (q.pressStart ?? -10)) / 0.75, 0, 1);
+      q.uniforms.uPointer.value.lerp(q.pointer, 1 - Math.exp(-12 * dt));
+    }
+
+    // The cursor reads the scene: it opens over a card, tightens over a button.
+    if (!coarsePointer) {
+      const overUi = uiQuads.some((q) => q.hoverTarget);
+      if (hovered.card !== null) setCursorSize(46, "rgba(127, 230, 255, 0.85)");
+      else if (overUi) setCursorSize(16, "rgba(255, 180, 92, 0.8)");
+      else setCursorSize(26, "rgba(127, 230, 255, 0.5)");
+    }
+
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
+
+    // The chrome is drawn last, straight to the canvas, so bloom never smears
+    // the type behind it.
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    renderer.render(uiScene, uiCamera);
+    renderer.autoClear = true;
+
+    hudTimer += dt;
+    frameAccum += raw;
+    frameCount++;
+    if (hudTimer > 0.4) {
+      const fps = frameCount / frameAccum;
+      hudFps.textContent = String(Math.round(fps));
+      hudOrbit.textContent = `${((rig.theta * 180) / Math.PI).toFixed(0)}° / ${((rig.phi * 180) / Math.PI).toFixed(0)}°`;
+
+      // One-way quality step-down: a soft-rendered or low-power device gets a
+      // stable 60 at dpr 1 rather than a smooth-looking 24 at dpr 2.
+      if (!dprChecked && clock > 3 && fps < 42 && renderer.getPixelRatio() > 1) {
+        dprChecked = true;
+        renderer.setPixelRatio(1);
+        if (bloomPass) bloomPass.strength = 0.45;
+        onResize();
+      }
+
+      hudTimer = 0;
+      frameAccum = 0;
+      frameCount = 0;
+    }
+  }
+
+  if (prefersReducedMotion) skipIntro();
+  requestAnimationFrame(frame);
+
+  // Handy while iterating on the shaders from the console.
+  window.__m4d = { scene, camera, renderer, cards, butterfly, intro, rig, startIntro, reloadCards, stats };
+</script>
