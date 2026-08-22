@@ -10,6 +10,7 @@ Four layers. Dependencies point strictly inward.
 ```
         ┌──────────────────────────────────────────┐
 HTTP ──▶│  api/        routes, schemas, errors     │
+        │  ipad/       home-screen PWA console     │
         ├──────────────────────────────────────────┤
         │  services/   use cases, transactions     │
         ├──────────────────────────────────────────┤
@@ -76,6 +77,10 @@ about status codes.
 Wire schemas are separate from domain entities on purpose. If routes serialised
 domain objects directly, every internal rename would silently become a breaking
 API change and every new internal field would be published by default.
+
+The iPad console in `ipad/` is another delivery surface on the same process: a
+standalone web app at `/` that calls the public HTTP API. It does not import
+the domain. See [ADR-0009](adr/0009-ipad-pwa-console.md).
 
 ## The request lifecycle
 

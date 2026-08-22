@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="M4D" />
+    <meta
+      name="description"
+      content="mining4dollars operator console. Add to the iPad home screen."
+    />
+    <title>M4D</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/ipad/icons/favicon.svg" />
+    <link rel="stylesheet" href="/ipad/app.css" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <aside class="rail" aria-label="Navigation">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">M</div>
+          <div>
+            <div class="brand-name">M4D</div>
+            <div class="brand-sub">Operator console</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <button type="button" class="nav-item is-active" data-view="events">
+            Events
+          </button>
+          <button type="button" class="nav-item" data-view="status">Status</button>
+        </nav>
+        <div class="rail-foot">
+          <div id="link-pill" class="pill" data-state="unknown">Checking…</div>
+          <p class="hint">
+            Add to Home Screen to keep this app on the iPad.
+          </p>
+        </div>
+      </aside>
+
+      <section class="pane list-pane" id="events-pane">
+        <header class="pane-head">
+          <div>
+            <h1>Events</h1>
+            <p class="lede">Newest first. Same log the API writes.</p>
+          </div>
+          <button type="button" class="btn primary" id="compose-open">
+            Record
+          </button>
+        </header>
+        <div class="filters">
+          <label class="field">
+            <span>Source</span>
+            <input id="filter-source" type="text" enterkeyhint="search" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Kind</span>
+            <input id="filter-kind" type="text" enterkeyhint="search" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Min severity</span>
+            <select id="filter-severity">
+              <option value="">Any</option>
+              <option value="debug">debug</option>
+              <option value="info">info</option>
+              <option value="warning">warning</option>
+              <option value="error">error</option>
+              <option value="critical">critical</option>
+            </select>
+          </label>
+          <button type="button" class="btn" id="filter-apply">Apply</button>
+        </div>
+        <div id="event-list" class="event-list" role="list"></div>
+        <div class="list-foot">
+          <button type="button" class="btn" id="load-more" hidden>Load more</button>
+        </div>
+      </section>
+
+      <section class="pane detail-pane" id="detail-pane" aria-live="polite">
+        <div class="empty" id="detail-empty">
+          <h2>Select an event</h2>
+          <p>The activity record is append-only. Corrections are further events, not edits.</p>
+        </div>
+        <article id="detail-card" class="detail-card" hidden></article>
+      </section>
+
+      <section class="pane status-pane" id="status-pane" hidden>
+        <header class="pane-head">
+          <div>
+            <h1>Status</h1>
+            <p class="lede">Liveness and readiness, the same probes orchestrators use.</p>
+          </div>
+          <button type="button" class="btn" id="status-refresh">Refresh</button>
+        </header>
+        <div id="status-body" class="status-body"></div>
+      </section>
+    </div>
+
+    <div id="offline" class="banner" hidden>Offline. The shell is on this iPad; the API is not reachable.</div>
+    <div id="toast" class="toast" hidden></div>
+
+    <div id="install" class="sheet" hidden>
+      <div class="sheet-card install-card">
+        <h2>Keep M4D on this iPad</h2>
+        <ol>
+          <li>Tap <strong>Share</strong></li>
+          <li>Tap <strong>Add to Home Screen</strong></li>
+          <li>Tap <strong>Add</strong></li>
+        </ol>
+        <p>It opens on its own, without Safari chrome, and the shell stays installed.</p>
+        <button type="button" class="btn primary" id="install-dismiss">Got it</button>
+      </div>
+    </div>
+
+    <div id="sheet" class="sheet" hidden>
+      <form id="compose" class="sheet-card" autocomplete="off">
+        <header>
+          <h2>Record an event</h2>
+          <button type="button" class="btn ghost" id="compose-close">Close</button>
+        </header>
+        <label class="field">
+          <span>Source</span>
+          <input name="source" maxlength="128" required value="ipad" />
+        </label>
+        <label class="field">
+          <span>Kind</span>
+          <input
+            name="kind"
+            maxlength="128"
+            required
+            placeholder="console.session.started"
+          />
+        </label>
+        <fieldset class="severity">
+          <legend>Severity</legend>
+          <label><input type="radio" name="severity" value="debug" /> debug</label>
+          <label><input type="radio" name="severity" value="info" checked /> info</label>
+          <label><input type="radio" name="severity" value="warning" /> warning</label>
+          <label><input type="radio" name="severity" value="error" /> error</label>
+          <label><input type="radio" name="severity" value="critical" /> critical</label>
+        </fieldset>
+        <label class="field">
+          <span>Payload (JSON object)</span>
+          <textarea name="payload" rows="5" spellcheck="false">{}</textarea>
+        </label>
+        <p id="compose-error" class="form-error" hidden></p>
+        <button type="submit" class="btn primary wide" id="compose-submit">
+          Record
+        </button>
+      </form>
+    </div>
+
+    <script src="/ipad/app.js" defer></script>
+  </body>
+</html>
