@@ -36,7 +36,7 @@ class TestAppLibrary:
         assert "INNER" in response.text
         assert "Keep on this iPad" in response.text
         assert "Add to Home Screen" in response.text
-        assert 'apple-mobile-web-app-capable' in response.text
+        assert "apple-mobile-web-app-capable" in response.text
 
     async def test_library_is_at_index(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/index.html")
