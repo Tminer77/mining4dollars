@@ -19,9 +19,18 @@ class TestRoutes:
         # which is the flattened public surface either way.
         schema_paths = set(create_app(build()).openapi()["paths"])
 
-        assert {"/healthz", "/readyz", "/v1/events", "/v1/events/{event_id}"} <= (
-            paths | schema_paths
-        )
+        assert {
+            "/healthz",
+            "/readyz",
+            "/v1/events",
+            "/v1/events/{event_id}",
+            "/v1/coins",
+            "/v1/workers",
+            "/v1/quotes",
+            "/v1/fleet",
+            "/v1/workers/{worker_id}/assign",
+            "/v1/workers/{worker_id}/profitability",
+        } <= (paths | schema_paths)
 
     def test_documents_both_create_outcomes(self) -> None:
         """201 for a new event and 200 for a replay must both be discoverable."""

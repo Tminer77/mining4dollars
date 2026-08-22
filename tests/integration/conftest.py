@@ -32,7 +32,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 #: Every table the suite truncates between tests. `alembic_version` is
 #: deliberately excluded: wiping it would undo the migration state.
-MANAGED_TABLES = ("system_event",)
+MANAGED_TABLES = (
+    "mining_assignment",
+    "mining_quote",
+    "mining_capability",
+    "mining_pool",
+    "mining_worker",
+    "mining_coin",
+    "system_event",
+)
 
 
 @pytest.fixture(scope="session")
@@ -92,7 +100,9 @@ async def database(integration_settings: Settings) -> AsyncIterator[Database]:
 async def clean_tables(database: Database) -> None:
     """Empty the managed tables before each test."""
     async with database.engine.begin() as connection:
-        await connection.execute(text(f"TRUNCATE {', '.join(MANAGED_TABLES)} RESTART IDENTITY"))
+        await connection.execute(
+            text(f"TRUNCATE {', '.join(MANAGED_TABLES)} RESTART IDENTITY CASCADE")
+        )
 
 
 @pytest.fixture

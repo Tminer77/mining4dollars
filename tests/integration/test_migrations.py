@@ -73,6 +73,9 @@ async def test_schema_contains_the_expected_table(database: Database) -> None:
     async with database.engine.connect() as connection:
         tables = await connection.run_sync(lambda sync: inspect(sync).get_table_names())
     assert "system_event" in tables
+    assert "mining_worker" in tables
+    assert "mining_coin" in tables
+    assert "mining_quote" in tables
 
 
 async def test_keyset_index_exists(database: Database) -> None:

@@ -8,10 +8,22 @@ between rows and domain objects happens in the repositories.
 from __future__ import annotations
 
 import datetime as dt
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, Index, String, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -24,7 +36,19 @@ from m4d.domain.events import (
     EventSeverity,
 )
 
-__all__ = ["SystemEventRow"]
+__all__ = [
+    "MiningAssignmentRow",
+    "MiningCapabilityRow",
+    "MiningCoinRow",
+    "MiningPoolRow",
+    "MiningQuoteRow",
+    "MiningWorkerRow",
+    "SystemEventRow",
+]
+
+_MONEY = Numeric(20, 8)
+_HASHRATE = Numeric(40, 8)
+_WATTS = Numeric(12, 3)
 
 # Stored as VARCHAR + CHECK rather than a native PostgreSQL ENUM. Adding a value
 # to a native enum requires a migration that cannot run inside a transaction on
@@ -98,3 +122,136 @@ class SystemEventRow(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<SystemEventRow id={self.id} source={self.source!r} kind={self.kind!r}>"
+
+
+class MiningCoinRow(Base):
+    """A cryptocurrency the fleet may mine."""
+
+    __tablename__ = "mining_coin"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    algorithm: Mapped[str] = mapped_column(String(32), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("ticker", name="uq_mining_coin_ticker"),
+        CheckConstraint("length(btrim(ticker)) >= 2", name="ticker_not_blank"),
+        CheckConstraint("length(btrim(algorithm)) > 0", name="algorithm_not_blank"),
+        Index("ix_mining_coin_algorithm", "algorithm"),
+    )
+
+
+class MiningPoolRow(Base):
+    """A stratum endpoint that accepts shares for a coin."""
+
+    __tablename__ = "mining_pool"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    coin_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("mining_coin.id"), nullable=False
+    )
+    url: Mapped[str] = mapped_column(String(256), nullable=False)
+    worker_template: Mapped[str] = mapped_column(String(128), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("coin_id", "name", name="uq_mining_pool_coin_id_name"),
+        CheckConstraint("length(btrim(url)) > 0", name="url_not_blank"),
+        Index("ix_mining_pool_coin_id", "coin_id"),
+    )
+
+
+class MiningWorkerRow(Base):
+    """A mining rig enrolled in the fleet."""
+
+    __tablename__ = "mining_worker"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    hostname: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    power_watts: Mapped[Decimal] = mapped_column(_WATTS, nullable=False)
+    electricity_usd_per_kwh: Mapped[Decimal] = mapped_column(_MONEY, nullable=False)
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_algorithm: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_hashrate_hps: Mapped[Decimal | None] = mapped_column(_HASHRATE, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_mining_worker_name"),
+        CheckConstraint("length(btrim(name)) > 0", name="name_not_blank"),
+        CheckConstraint("power_watts >= 0", name="power_watts_non_negative"),
+        CheckConstraint("electricity_usd_per_kwh >= 0", name="electricity_non_negative"),
+        Index("ix_mining_worker_created_at_id", created_at.desc(), id.desc()),
+    )
+
+
+class MiningCapabilityRow(Base):
+    """A benchmarked algorithm this worker can run."""
+
+    __tablename__ = "mining_capability"
+
+    worker_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("mining_worker.id", ondelete="CASCADE"), primary_key=True
+    )
+    algorithm: Mapped[str] = mapped_column(String(32), primary_key=True)
+    hashrate_hps: Mapped[Decimal] = mapped_column(_HASHRATE, nullable=False)
+    power_watts: Mapped[Decimal | None] = mapped_column(_WATTS, nullable=True)
+
+    __table_args__ = (CheckConstraint("hashrate_hps > 0", name="capability_hashrate_positive"),)
+
+
+class MiningAssignmentRow(Base):
+    """The coin a worker is currently pointed at."""
+
+    __tablename__ = "mining_assignment"
+
+    worker_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("mining_worker.id", ondelete="CASCADE"), primary_key=True
+    )
+    coin_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("mining_coin.id"), nullable=False
+    )
+    pool_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("mining_pool.id", ondelete="SET NULL"), nullable=True
+    )
+    algorithm: Mapped[str] = mapped_column(String(32), nullable=False)
+    revenue_usd_per_day: Mapped[Decimal] = mapped_column(_MONEY, nullable=False)
+    cost_usd_per_day: Mapped[Decimal] = mapped_column(_MONEY, nullable=False)
+    profit_usd_per_day: Mapped[Decimal] = mapped_column(_MONEY, nullable=False)
+    assigned_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class MiningQuoteRow(Base):
+    """One observation of a coin's estimated 24-hour gross revenue."""
+
+    __tablename__ = "mining_quote"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    coin_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("mining_coin.id"), nullable=False
+    )
+    algorithm: Mapped[str] = mapped_column(String(32), nullable=False)
+    revenue_usd_per_day: Mapped[Decimal] = mapped_column(_MONEY, nullable=False)
+    reference_hashrate_hps: Mapped[Decimal] = mapped_column(_HASHRATE, nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    quoted_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recorded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("revenue_usd_per_day >= 0", name="revenue_non_negative"),
+        CheckConstraint("reference_hashrate_hps > 0", name="reference_hashrate_positive"),
+        Index(
+            "ix_mining_quote_coin_id_quoted_at",
+            coin_id,
+            quoted_at.desc(),
+            recorded_at.desc(),
+        ),
+    )

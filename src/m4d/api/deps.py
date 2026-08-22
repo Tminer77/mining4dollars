@@ -14,10 +14,19 @@ from fastapi import Depends, Request
 
 from m4d.config import Settings
 from m4d.db.engine import Database
+from m4d.domain.ports import Clock
 from m4d.services.events import EventService
 from m4d.services.health import HealthService
+from m4d.services.mining import MiningService
 
-__all__ = ["DatabaseDep", "EventServiceDep", "HealthServiceDep", "SettingsDep"]
+__all__ = [
+    "ClockDep",
+    "DatabaseDep",
+    "EventServiceDep",
+    "HealthServiceDep",
+    "MiningServiceDep",
+    "SettingsDep",
+]
 
 
 def get_settings(request: Request) -> Settings:
@@ -44,7 +53,21 @@ def get_health_service(request: Request) -> HealthService:
     return service
 
 
+def get_mining_service(request: Request) -> MiningService:
+    """Return the mining use cases."""
+    service: MiningService = request.app.state.mining_service
+    return service
+
+
+def get_clock(request: Request) -> Clock:
+    """Return the process clock."""
+    clock: Clock = request.app.state.clock
+    return clock
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DatabaseDep = Annotated[Database, Depends(get_database)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
 HealthServiceDep = Annotated[HealthService, Depends(get_health_service)]
+MiningServiceDep = Annotated[MiningService, Depends(get_mining_service)]
+ClockDep = Annotated[Clock, Depends(get_clock)]
