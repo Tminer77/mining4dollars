@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="New app" />
+    <meta name="description" content="Starter iPad app. Kept on this device." />
+    <title>New app</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="app" class="app is-home">
+      <aside class="rail">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">+</div>
+          <div>
+            <div class="brand-name">New app</div>
+            <div class="brand-sub">Template</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <a class="nav-item" href="index.html">Apps</a>
+          <a class="nav-item is-active" href="template.html">Template</a>
+        </nav>
+      </aside>
+      <section class="pane home-pane">
+        <header class="pane-head">
+          <div>
+            <h1>Make an iPad app</h1>
+            <p class="lede">
+              Copy this file to <code>your-app.html</code>, add a script, then
+              append an entry in <code>apps.json</code>. Data you store with
+              <code>M4DStore</code> stays on this iPad.
+            </p>
+          </div>
+        </header>
+        <article class="card">
+          <h2>Checklist</h2>
+          <p class="lede">1. Copy template.html</p>
+          <p class="lede">2. List it in apps.json</p>
+          <p class="lede">3. Keep state in IndexedDB via store.js</p>
+        </article>
+      </section>
+    </div>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(() => {});
+      }
+    </script>
+  </body>
+</html>

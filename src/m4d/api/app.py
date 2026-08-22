@@ -22,6 +22,7 @@ from m4d.api.routes import health as health_routes
 from m4d.config import Settings, get_settings
 from m4d.db.engine import Database
 from m4d.db.uow import SqlAlchemyUnitOfWork
+from m4d.ipad.routes import mount_ipad
 from m4d.observability.logging import setup_logging
 from m4d.services.clock import SystemClock
 from m4d.services.events import EventService
@@ -114,5 +115,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_routes.router)
     app.include_router(events_routes.router)
+    mount_ipad(app)
 
     return app

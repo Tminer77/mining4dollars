@@ -1,0 +1,61 @@
+name: iPad console
+
+# Publishes the console to GitHub Pages so an iPad can Add to Home Screen
+# over HTTPS. Skips cleanly when Pages is not enabled yet — enabling it is
+# a one-time repo setting (Settings → Pages → GitHub Actions) and cannot
+# be done with the default GITHUB_TOKEN.
+
+on:
+  push:
+    branches:
+      - cursor/ipad-operator-console-fc0c
+      - claude/system-architecture-foundation-pjk5s2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ipad-pages
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Pages available
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.detect.outputs.enabled }}
+    steps:
+      - id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages is enabled."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Enable GitHub Pages::Settings → Pages → Source: GitHub Actions. Then the iPad can install from https://tminer77.github.io/mining4dollars/"
+          fi
+
+  deploy:
+    name: Publish M4D
+    needs: detect
+    if: needs.detect.outputs.enabled == 'true'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: src/m4d/ipad/static
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

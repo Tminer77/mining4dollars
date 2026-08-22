@@ -1,0 +1,26 @@
+[
+  {
+    "id": "inner",
+    "name": "INNER",
+    "lede": "Live wires, pixels, stars. M4D and this iPad.",
+    "href": "inner.html"
+  },
+  {
+    "id": "console",
+    "name": "Console",
+    "lede": "Event log. Stays on this iPad.",
+    "href": "console.html"
+  },
+  {
+    "id": "notes",
+    "name": "Notes",
+    "lede": "Field notes. Stays on this iPad.",
+    "href": "notes.html"
+  },
+  {
+    "id": "template",
+    "name": "New app",
+    "lede": "Copy template.html, then list it here.",
+    "href": "template.html"
+  }
+]

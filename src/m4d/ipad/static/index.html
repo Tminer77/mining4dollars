@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="M4D" />
+    <meta name="description" content="iPad apps for mining4dollars. Kept on this iPad." />
+    <title>iPad apps</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="app" class="app is-home">
+      <aside class="rail" aria-label="Navigation">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">M</div>
+          <div>
+            <div class="brand-name">M4D</div>
+            <div class="brand-sub">iPad apps</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <a class="nav-item is-active" href="index.html">Apps</a>
+          <a class="nav-item" href="inner.html">INNER</a>
+          <a class="nav-item" href="console.html">Console</a>
+          <a class="nav-item" href="notes.html">Notes</a>
+        </nav>
+        <div class="rail-foot">
+          <div class="pill" data-state="ok">On this iPad</div>
+          <button type="button" id="install-chip" class="install-chip">
+            Add to Home Screen
+          </button>
+        </div>
+      </aside>
+
+      <section class="pane home-pane">
+        <header class="pane-head">
+          <div>
+            <h1>iPad apps</h1>
+            <p class="lede">
+              These run on this iPad. To add another: copy <code>template.html</code>,
+              then list it in <code>apps.json</code>.
+            </p>
+          </div>
+        </header>
+        <div id="app-grid" class="app-grid"></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+    <div id="install" class="sheet" hidden>
+      <div class="sheet-card install-card">
+        <h2>Keep these apps on this iPad</h2>
+        <ol>
+          <li>Tap <strong>Share</strong></li>
+          <li>Tap <strong>Add to Home Screen</strong></li>
+          <li>Tap <strong>Add</strong></li>
+        </ol>
+        <p>The icon opens this library. Console and Notes stay on the device.</p>
+        <button type="button" class="btn primary" id="install-dismiss">Later this session</button>
+      </div>
+    </div>
+
+    <script src="home.js" defer></script>
+  </body>
+</html>

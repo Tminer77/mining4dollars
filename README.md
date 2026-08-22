@@ -16,6 +16,7 @@ follows through the same layers.
 - **Language:** Python 3.12
 - **API:** FastAPI, async end to end
 - **Storage:** PostgreSQL 16 via SQLAlchemy 2.0 (asyncpg) and Alembic
+- **iPad:** INNER at `/`, installable to the home screen
 - **Quality gates:** ruff, mypy `--strict`, pytest
 
 ---
@@ -40,6 +41,19 @@ cp .env.example .env      # then edit M4D_DATABASE_URL
 The API is then on <http://localhost:8000>, with interactive documentation at
 `/docs` (served everywhere except staging and production).
 
+On an iPad, open `/` in Safari (or
+<https://tminer77.github.io/mining4dollars/> after Pages is enabled), then tap
+**Install on this iPad** or **Share → Add to Home Screen**. That icon is
+**INNER**.
+
+- **INNER** — live wire-and-pixel view of M4D layers and this iPad (`/`)
+- **Console** — event log, kept on this iPad (`/console.html`)
+- **Notes** — field notes, kept on this iPad (`/notes.html`)
+- **Library** — `/index.html`. Copy `template.html` and list it in `apps.json`
+
+They still work with no network. Console copies to `/v1/events` when an API on
+the same origin is reachable.
+
 ```bash
 curl -X POST localhost:8000/v1/events \
   -H 'Content-Type: application/json' \
@@ -60,6 +74,7 @@ reverse.
 
 ```
 HTTP  ─→  api/         routes, schemas, error rendering, middleware
+          ipad/        installable iPad console (same-origin PWA)
           services/    use cases; owns the transaction boundary
           domain/      entities, value objects, errors, ports  ← depends on nothing
           db/          SQLAlchemy adapters implementing those ports
@@ -82,6 +97,7 @@ the alternatives rejected are recorded in [`docs/adr/`](docs/adr/).
 | `src/m4d/services/` | Use cases; one transaction boundary each |
 | `src/m4d/db/` | Engine, ORM tables, repositories, unit of work |
 | `src/m4d/api/` | Routes, wire schemas, error handlers, middleware |
+| `src/m4d/ipad/` | iPad console: home-screen PWA served at `/` |
 | `src/m4d/observability/` | Structured logging and request context |
 | `src/m4d/config.py` | The entire configuration surface |
 | `migrations/` | Alembic revisions |
@@ -200,4 +216,5 @@ The event slice is the worked example; a new capability follows the same path.
 
 The foundation is complete and verified. The domain slice is deliberately
 generic: the platform's specific entities are not yet modelled, and adding them
-is the next step.
+is the next step. INNER at `/` is the first operator-facing client and
+installs to the iPad home screen from Safari.

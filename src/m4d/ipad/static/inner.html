@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#030308" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="INNER" />
+    <meta
+      name="description"
+      content="Live wire-and-pixel view of M4D layers and this iPad."
+    />
+    <title>INNER</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="inner-body">
+    <section id="splash" class="inner-splash" aria-label="INNER">
+      <img src="icons/icon-180.png" width="120" height="120" alt="INNER" />
+      <div class="inner-splash-name">INNER</div>
+    </section>
+    <canvas id="stage" aria-label="Real-time M4D and iPad inner workings"></canvas>
+    <header class="inner-bar">
+      <img class="inner-icon" src="icons/icon-180.png" width="60" height="60" alt="INNER" />
+      <a class="nav-item" href="index.html">Apps</a>
+      <div>
+        <div class="inner-title">INNER</div>
+        <div class="inner-sub">M4D deep functions · this iPad, live</div>
+      </div>
+      <div class="inner-actions">
+        <button type="button" class="btn" id="sense">Enable motion</button>
+        <button type="button" class="btn primary install-chip" id="install-chip">Keep on this iPad</button>
+      </div>
+    </header>
+    <aside id="hud" class="inner-hud" aria-live="polite"></aside>
+    <p class="inner-legend">
+      Wires are real lanes this page can see: clock, display, network, storage,
+      sensors, and the M4D layers. Packets move when those lanes fire.
+    </p>
+    <nav class="inner-dock" aria-label="INNER on this iPad">
+      <div class="inner-dock-slot">
+        <img src="icons/icon-180.png" width="72" height="72" alt="INNER" />
+        <span>INNER</span>
+      </div>
+    </nav>
+    <div id="install" class="sheet" hidden>
+      <div class="sheet-card install-card">
+        <img class="inner-icon" src="icons/icon-180.png" width="72" height="72" alt="INNER" />
+        <h2>This is your app. Put it on this iPad.</h2>
+        <p>Open this page in <strong>Safari</strong>, then tap install. Settings will ask to add INNER.</p>
+        <a class="btn primary" id="install-profile" href="inner.mobileconfig">Install on this iPad</a>
+        <p>If Settings does not open: <strong>Settings → General → VPN &amp; Device Management → INNER → Install</strong>.</p>
+        <p>Or in Safari: Share → Add to Home Screen → Add.</p>
+        <button type="button" class="btn" id="copy-link">Copy Safari link</button>
+        <button type="button" class="btn" id="install-dismiss">Later this session</button>
+      </div>
+    </div>
+    <script src="store.js" defer></script>
+    <script src="inner.js" defer></script>
+  </body>
+</html>
