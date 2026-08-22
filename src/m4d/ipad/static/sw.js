@@ -1,5 +1,5 @@
 /* M4D iPad console — keep the shell and the log on the device. */
-const CACHE = "m4d-ipad-v6";
+const CACHE = "m4d-ipad-v7";
 const SHELL = [
   "./",
   "./index.html",
@@ -70,7 +70,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => cached || caches.match(new URL("./", self.location)));
+        .catch(() => cached || caches.match(new URL("./inner.html", self.location)));
       return cached || fetched;
     }),
   );

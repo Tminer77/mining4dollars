@@ -1,15 +1,15 @@
 {
-  "id": "./",
-  "name": "M4D",
-  "short_name": "M4D",
-  "description": "mining4dollars operator console. Lives on the iPad home screen.",
-  "start_url": "./",
+  "id": "./inner.html",
+  "name": "INNER",
+  "short_name": "INNER",
+  "description": "Your M4D inner workings. Lives on this iPad.",
+  "start_url": "./inner.html",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "browser"],
   "orientation": "any",
-  "background_color": "#0b0b0c",
-  "theme_color": "#0b0b0c",
+  "background_color": "#030308",
+  "theme_color": "#030308",
   "categories": ["business", "utilities"],
   "icons": [
     {

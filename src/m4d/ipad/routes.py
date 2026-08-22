@@ -27,6 +27,12 @@ def _file(name: str, media_type: str, headers: dict[str, str] | None = None) -> 
 
 
 @router.get("/")
+async def root() -> FileResponse:
+    """Launch INNER — the app that belongs on the iPad home screen."""
+    return _file("inner.html", "text/html; charset=utf-8", _NO_STORE)
+
+
+@router.get("/index.html")
 async def library() -> FileResponse:
     """The iPad app library."""
     return _file("index.html", "text/html; charset=utf-8", _NO_STORE)

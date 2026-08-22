@@ -30,13 +30,28 @@
         <div class="inner-title">INNER</div>
         <div class="inner-sub">M4D deep functions · this iPad, live</div>
       </div>
-      <button type="button" class="btn" id="sense">Enable motion</button>
+      <div class="inner-actions">
+        <button type="button" class="btn" id="sense">Enable motion</button>
+        <button type="button" class="btn primary install-chip" id="install-chip">Keep on this iPad</button>
+      </div>
     </header>
     <aside id="hud" class="inner-hud" aria-live="polite"></aside>
     <p class="inner-legend">
       Wires are real lanes this page can see: clock, display, network, storage,
       sensors, and the M4D layers. Packets move when those lanes fire.
     </p>
+    <div id="install" class="sheet">
+      <div class="sheet-card install-card">
+        <h2>This is your app. Put it on this iPad.</h2>
+        <ol>
+          <li>Tap <strong>Share</strong></li>
+          <li>Tap <strong>Add to Home Screen</strong></li>
+          <li>Tap <strong>Add</strong></li>
+        </ol>
+        <p>INNER opens from your icon after that. The log and this display stay on this iPad.</p>
+        <button type="button" class="btn primary" id="install-dismiss">Later this session</button>
+      </div>
+    </div>
     <script src="store.js" defer></script>
     <script src="inner.js" defer></script>
   </body>

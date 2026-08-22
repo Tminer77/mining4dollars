@@ -366,6 +366,34 @@
     requestAnimationFrame(tick);
   }
 
+  function isStandalone() {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true
+    );
+  }
+
+  function bindInstall() {
+    const chip = document.getElementById("install-chip");
+    const sheet = document.getElementById("install");
+    const key = "m4d.inner.install";
+    if (!chip || !sheet) return;
+    if (isStandalone()) {
+      chip.hidden = true;
+      sheet.hidden = true;
+      return;
+    }
+    sheet.hidden = sessionStorage.getItem(key) === "session";
+    document.getElementById("install-dismiss").addEventListener("click", () => {
+      sessionStorage.setItem(key, "session");
+      sheet.hidden = true;
+    });
+    chip.addEventListener("click", () => {
+      sessionStorage.removeItem(key);
+      sheet.hidden = false;
+    });
+  }
+
   function bindSense() {
     const button = document.getElementById("sense");
     button.addEventListener("click", async () => {
@@ -403,6 +431,7 @@
   }
 
   resize();
+  bindInstall();
   bindSense();
   sampleM4();
   window.setInterval(sampleM4, 2500);

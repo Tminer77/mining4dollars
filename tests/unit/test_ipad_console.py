@@ -29,16 +29,21 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
 
 
 class TestAppLibrary:
-    async def test_root_is_the_ipad_app_library(self, client: httpx.AsyncClient) -> None:
+    async def test_root_launches_inner(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/")
 
         assert response.status_code == 200
-        assert "text/html" in response.headers["content-type"]
-        body = response.text
-        assert "apple-mobile-web-app-capable" in body
-        assert "iPad apps" in body
-        assert "apps.json" in body
-        assert "Add to Home Screen" in body
+        assert "INNER" in response.text
+        assert "Keep on this iPad" in response.text
+        assert "Add to Home Screen" in response.text
+        assert 'apple-mobile-web-app-capable' in response.text
+
+    async def test_library_is_at_index(self, client: httpx.AsyncClient) -> None:
+        response = await client.get("/index.html")
+
+        assert response.status_code == 200
+        assert "iPad apps" in response.text
+        assert "apps.json" in response.text
 
     async def test_catalog_lists_console_and_notes(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/apps.json")
@@ -85,6 +90,10 @@ class TestInnerApp:
         assert "icosahedron" in script.text or "ICO" in script.text
         assert "HTTP" in script.text and "DOMAIN" in script.text
         assert "hardwareConcurrency" in script.text
+        assert "Keep on this iPad" in page.text
+        assert "Add to Home Screen" in page.text
+        assert 'id="install-chip"' in page.text
+        assert "bindInstall" in script.text or "install-chip" in script.text
 
 
 class TestNotesApp:
@@ -105,15 +114,16 @@ class TestInstallSurface:
         assert response.status_code == 200
         manifest = response.json()
         assert manifest["display"] == "standalone"
-        assert manifest["start_url"] == "./"
+        assert manifest["start_url"] == "./inner.html"
         assert manifest["scope"] == "./"
-        assert manifest["short_name"] == "M4D"
+        assert manifest["name"] == "INNER"
+        assert manifest["short_name"] == "INNER"
 
     async def test_service_worker_caches_every_app(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/sw.js")
 
         assert response.status_code == 200
-        assert "m4d-ipad-v6" in response.text
+        assert "m4d-ipad-v7" in response.text
         assert "./console.html" in response.text
         assert "./notes.html" in response.text
         assert "./inner.html" in response.text
@@ -135,7 +145,7 @@ class TestInstallSurface:
 
 class TestConsoleDoesNotStealTheApi:
     async def test_health_route_is_still_the_probe(self, client: httpx.AsyncClient) -> None:
-        """``/`` is the app library; ``/healthz`` must remain a JSON probe."""
+        """``/`` is INNER; ``/healthz`` must remain a JSON probe."""
         response = await client.get("/healthz")
 
         assert response.status_code == 200
