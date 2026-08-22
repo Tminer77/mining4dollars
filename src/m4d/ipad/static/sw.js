@@ -1,10 +1,11 @@
 /* M4D iPad console — keep the shell and the log on the device. */
-const CACHE = "m4d-ipad-v5";
+const CACHE = "m4d-ipad-v6";
 const SHELL = [
   "./",
   "./index.html",
   "./console.html",
   "./notes.html",
+  "./inner.html",
   "./template.html",
   "./apps.json",
   "./manifest.webmanifest",
@@ -12,6 +13,7 @@ const SHELL = [
   "./app.js",
   "./home.js",
   "./notes.js",
+  "./inner.js",
   "./store.js",
   "./icons/icon-180.png",
   "./icons/icon-192.png",

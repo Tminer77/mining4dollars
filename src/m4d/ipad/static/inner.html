@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#030308" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="INNER" />
+    <meta
+      name="description"
+      content="Live wire-and-pixel view of M4D layers and this iPad."
+    />
+    <title>INNER</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="inner-body">
+    <canvas id="stage" aria-label="Real-time M4D and iPad inner workings"></canvas>
+    <header class="inner-bar">
+      <a class="nav-item" href="index.html">Apps</a>
+      <div>
+        <div class="inner-title">INNER</div>
+        <div class="inner-sub">M4D deep functions · this iPad, live</div>
+      </div>
+      <button type="button" class="btn" id="sense">Enable motion</button>
+    </header>
+    <aside id="hud" class="inner-hud" aria-live="polite"></aside>
+    <p class="inner-legend">
+      Wires are real lanes this page can see: clock, display, network, storage,
+      sensors, and the M4D layers. Packets move when those lanes fire.
+    </p>
+    <script src="store.js" defer></script>
+    <script src="inner.js" defer></script>
+  </body>
+</html>

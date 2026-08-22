@@ -44,6 +44,7 @@ The API is then on <http://localhost:8000>, with interactive documentation at
 On an iPad, open <https://tminer77.github.io/mining4dollars/> in Safari, tap
 **Share**, then **Add to Home Screen**. That icon is the iPad app library.
 
+- **INNER** — live wire-and-pixel view of M4D layers and this iPad
 - **Console** — event log, kept on this iPad
 - **Notes** — field notes, kept on this iPad
 - **New app** — copy `template.html` and list it in `apps.json`

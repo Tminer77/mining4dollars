@@ -39,6 +39,19 @@ async def console() -> FileResponse:
     return _file("console.html", "text/html; charset=utf-8", _NO_STORE)
 
 
+@router.get("/inner")
+@router.get("/inner.html")
+async def inner() -> FileResponse:
+    """Live wire-and-pixel view of M4D and this iPad."""
+    return _file("inner.html", "text/html; charset=utf-8", _NO_STORE)
+
+
+@router.get("/inner.js")
+async def inner_script() -> FileResponse:
+    """INNER renderer."""
+    return _file("inner.js", "application/javascript; charset=utf-8")
+
+
 @router.get("/notes")
 @router.get("/notes.html")
 async def notes() -> FileResponse:

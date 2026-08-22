@@ -1,5 +1,11 @@
 [
   {
+    "id": "inner",
+    "name": "INNER",
+    "lede": "Live wires, pixels, stars. M4D and this iPad.",
+    "href": "inner.html"
+  },
+  {
     "id": "console",
     "name": "Console",
     "lede": "Event log. Stays on this iPad.",

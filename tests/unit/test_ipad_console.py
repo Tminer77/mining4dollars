@@ -46,7 +46,7 @@ class TestAppLibrary:
         assert response.status_code == 200
         catalog = response.json()
         ids = {app["id"] for app in catalog}
-        assert {"console", "notes", "template"} <= ids
+        assert {"console", "notes", "template", "inner"} <= ids
 
 
 class TestConsoleApp:
@@ -71,6 +71,20 @@ class TestConsoleApp:
         assert "serviceWorker" in js.text
         assert "allNotes" in store.text
         assert "navigator.share" in js.text
+
+
+class TestInnerApp:
+    async def test_inner_is_a_live_wire_display(self, client: httpx.AsyncClient) -> None:
+        page = await client.get("/inner.html")
+        script = await client.get("/inner.js")
+
+        assert page.status_code == 200
+        assert "wire" in page.text.lower() or "INNER" in page.text
+        assert script.status_code == 200
+        assert "requestAnimationFrame" in script.text
+        assert "icosahedron" in script.text or "ICO" in script.text
+        assert "HTTP" in script.text and "DOMAIN" in script.text
+        assert "hardwareConcurrency" in script.text
 
 
 class TestNotesApp:
@@ -99,9 +113,10 @@ class TestInstallSurface:
         response = await client.get("/sw.js")
 
         assert response.status_code == 200
-        assert "m4d-ipad-v5" in response.text
+        assert "m4d-ipad-v6" in response.text
         assert "./console.html" in response.text
         assert "./notes.html" in response.text
+        assert "./inner.html" in response.text
 
     async def test_apple_touch_icon_is_a_png(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/apple-touch-icon.png")
