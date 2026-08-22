@@ -27,9 +27,48 @@ def _file(name: str, media_type: str, headers: dict[str, str] | None = None) -> 
 
 
 @router.get("/")
-async def console() -> FileResponse:
-    """The iPad app shell."""
+async def library() -> FileResponse:
+    """The iPad app library."""
     return _file("index.html", "text/html; charset=utf-8", _NO_STORE)
+
+
+@router.get("/console")
+@router.get("/console.html")
+async def console() -> FileResponse:
+    """Operator console app."""
+    return _file("console.html", "text/html; charset=utf-8", _NO_STORE)
+
+
+@router.get("/notes")
+@router.get("/notes.html")
+async def notes() -> FileResponse:
+    """Notes app."""
+    return _file("notes.html", "text/html; charset=utf-8", _NO_STORE)
+
+
+@router.get("/template")
+@router.get("/template.html")
+async def template() -> FileResponse:
+    """Starter page for the next iPad app."""
+    return _file("template.html", "text/html; charset=utf-8", _NO_STORE)
+
+
+@router.get("/apps.json")
+async def catalog() -> FileResponse:
+    """Registry of iPad apps on this device."""
+    return _file("apps.json", "application/json; charset=utf-8", _NO_STORE)
+
+
+@router.get("/home.js")
+async def home_script() -> FileResponse:
+    """App library script."""
+    return _file("home.js", "application/javascript; charset=utf-8")
+
+
+@router.get("/notes.js")
+async def notes_script() -> FileResponse:
+    """Notes app script."""
+    return _file("notes.js", "application/javascript; charset=utf-8")
 
 
 @router.get("/manifest.webmanifest")

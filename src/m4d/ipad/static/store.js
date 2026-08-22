@@ -3,8 +3,9 @@
   "use strict";
 
   const DB_NAME = "m4d-ipad";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const EVENTS = "events";
+  const NOTES = "notes";
   const DEVICE_KEY = "m4d.ipad.deviceId";
 
   const NAME_KEY = "m4d.ipad.deviceName";
@@ -34,8 +35,12 @@
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(EVENTS)) {
-          const store = db.createObjectStore(EVENTS, { keyPath: "id" });
-          store.createIndex("occurred_at", "occurred_at");
+          const events = db.createObjectStore(EVENTS, { keyPath: "id" });
+          events.createIndex("occurred_at", "occurred_at");
+        }
+        if (!db.objectStoreNames.contains(NOTES)) {
+          const notes = db.createObjectStore(NOTES, { keyPath: "id" });
+          notes.createIndex("updated_at", "updated_at");
         }
       };
       request.onsuccess = () => resolve(request.result);
@@ -43,8 +48,8 @@
     });
   }
 
-  function asStore(db, mode) {
-    return db.transaction(EVENTS, mode).objectStore(EVENTS);
+  function asStore(db, name, mode) {
+    return db.transaction(name, mode).objectStore(name);
   }
 
   function requestToPromise(request) {
@@ -56,20 +61,20 @@
 
   async function putEvent(event) {
     const db = await openDb();
-    await requestToPromise(asStore(db, "readwrite").put(event));
+    await requestToPromise(asStore(db, EVENTS, "readwrite").put(event));
     db.close();
     return event;
   }
 
   async function deleteEvent(id) {
     const db = await openDb();
-    await requestToPromise(asStore(db, "readwrite").delete(id));
+    await requestToPromise(asStore(db, EVENTS, "readwrite").delete(id));
     db.close();
   }
 
   async function allEvents() {
     const db = await openDb();
-    const rows = await requestToPromise(asStore(db, "readonly").getAll());
+    const rows = await requestToPromise(asStore(db, EVENTS, "readonly").getAll());
     db.close();
     return rows.sort((left, right) => {
       if (left.occurred_at === right.occurred_at) {
@@ -85,7 +90,7 @@
 
   async function replaceLocal(localId, serverEvent) {
     const db = await openDb();
-    const store = asStore(db, "readwrite");
+    const store = asStore(db, EVENTS, "readwrite");
     await requestToPromise(store.delete(localId));
     await requestToPromise(store.put({ ...serverEvent, synced: true, kept_on_device: true }));
     db.close();
@@ -93,7 +98,7 @@
 
   async function rememberRemote(events) {
     const db = await openDb();
-    const store = asStore(db, "readwrite");
+    const store = asStore(db, EVENTS, "readwrite");
     for (const event of events) {
       const existing = await requestToPromise(store.get(event.id));
       if (existing && existing.synced === false) {
@@ -115,8 +120,34 @@
 
   async function clearAll() {
     const db = await openDb();
-    await requestToPromise(asStore(db, "readwrite").clear());
+    await requestToPromise(asStore(db, EVENTS, "readwrite").clear());
     db.close();
+  }
+
+  function newNote() {
+    const now = new Date().toISOString();
+    return { id: crypto.randomUUID(), title: "", body: "", updated_at: now };
+  }
+
+  async function putNote(note) {
+    const row = { ...note, updated_at: new Date().toISOString() };
+    const db = await openDb();
+    await requestToPromise(asStore(db, NOTES, "readwrite").put(row));
+    db.close();
+    return row;
+  }
+
+  async function deleteNote(id) {
+    const db = await openDb();
+    await requestToPromise(asStore(db, NOTES, "readwrite").delete(id));
+    db.close();
+  }
+
+  async function allNotes() {
+    const db = await openDb();
+    const rows = await requestToPromise(asStore(db, NOTES, "readonly").getAll());
+    db.close();
+    return rows.sort((left, right) => (left.updated_at < right.updated_at ? 1 : -1));
   }
 
   function localEvent({ source, kind, severity, payload, idempotency_key }) {
@@ -149,5 +180,9 @@
     exportBundle,
     clearAll,
     localEvent,
+    newNote,
+    putNote,
+    deleteNote,
+    allNotes,
   };
 })();

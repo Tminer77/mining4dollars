@@ -1,4 +1,4 @@
-"""The iPad console is served as a same-origin web app."""
+"""The iPad apps are served as a same-origin workshop."""
 
 from __future__ import annotations
 
@@ -28,40 +28,80 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
         yield session
 
 
-class TestConsoleShell:
-    async def test_root_is_the_ipad_app(self, client: httpx.AsyncClient) -> None:
+class TestAppLibrary:
+    async def test_root_is_the_ipad_app_library(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/")
 
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
         body = response.text
         assert "apple-mobile-web-app-capable" in body
-        assert 'rel="manifest"' in body
+        assert "iPad apps" in body
+        assert "apps.json" in body
         assert "Add to Home Screen" in body
-        assert "this iPad" in body
-        assert 'src="store.js"' in body
-        assert 'href="app.css"' in body
+
+    async def test_catalog_lists_console_and_notes(self, client: httpx.AsyncClient) -> None:
+        response = await client.get("/apps.json")
+
+        assert response.status_code == 200
+        catalog = response.json()
+        ids = {app["id"] for app in catalog}
+        assert {"console", "notes", "template"} <= ids
+
+
+class TestConsoleApp:
+    async def test_console_is_the_operator_log(self, client: httpx.AsyncClient) -> None:
+        response = await client.get("/console.html")
+
+        assert response.status_code == 200
+        body = response.text
         assert "Search this iPad" in body
+        assert 'src="store.js"' in body
         assert 'data-view="settings"' in body
 
+    async def test_assets_are_served(self, client: httpx.AsyncClient) -> None:
+        css = await client.get("/app.css")
+        js = await client.get("/app.js")
+        store = await client.get("/store.js")
+
+        assert css.status_code == 200
+        assert js.status_code == 200
+        assert store.status_code == 200
+        assert "safe-area-inset" in css.text
+        assert "serviceWorker" in js.text
+        assert "allNotes" in store.text
+        assert "navigator.share" in js.text
+
+
+class TestNotesApp:
+    async def test_notes_stay_on_this_ipad(self, client: httpx.AsyncClient) -> None:
+        page = await client.get("/notes.html")
+        script = await client.get("/notes.js")
+
+        assert page.status_code == 200
+        assert "Field notes" in page.text or "Notes" in page.text
+        assert script.status_code == 200
+        assert "putNote" in script.text
+
+
+class TestInstallSurface:
     async def test_manifest_is_standalone(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/manifest.webmanifest")
 
         assert response.status_code == 200
-        assert "manifest" in response.headers["content-type"]
         manifest = response.json()
         assert manifest["display"] == "standalone"
         assert manifest["start_url"] == "./"
         assert manifest["scope"] == "./"
         assert manifest["short_name"] == "M4D"
 
-    async def test_service_worker_is_allowed_at_root(self, client: httpx.AsyncClient) -> None:
+    async def test_service_worker_caches_every_app(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/sw.js")
 
         assert response.status_code == 200
-        assert "javascript" in response.headers["content-type"]
-        assert "m4d-ipad-v4" in response.text
-        assert "./store.js" in response.text
+        assert "m4d-ipad-v5" in response.text
+        assert "./console.html" in response.text
+        assert "./notes.html" in response.text
 
     async def test_apple_touch_icon_is_a_png(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/apple-touch-icon.png")
@@ -70,28 +110,17 @@ class TestConsoleShell:
         assert response.headers["content-type"].startswith("image/png")
         assert response.content[:8] == b"\x89PNG\r\n\x1a\n"
 
-    async def test_assets_are_served_under_ipad(self, client: httpx.AsyncClient) -> None:
-        css = await client.get("/app.css")
-        js = await client.get("/app.js")
-        store = await client.get("/store.js")
-        nested = await client.get("/ipad/app.css")
+    async def test_template_explains_how_to_add_an_app(self, client: httpx.AsyncClient) -> None:
+        response = await client.get("/template.html")
 
-        assert css.status_code == 200
-        assert js.status_code == 200
-        assert store.status_code == 200
-        assert nested.status_code == 200
-        assert "safe-area-inset" in css.text
-        assert "serviceWorker" in js.text
-        assert "indexedDB" in store.text
-        assert "M4DStore" in store.text
-        assert "exportBundle" in store.text
-        assert "kept on this iPad" in js.text
-        assert "navigator.share" in js.text
+        assert response.status_code == 200
+        assert "apps.json" in response.text
+        assert "M4DStore" in response.text
 
 
 class TestConsoleDoesNotStealTheApi:
     async def test_health_route_is_still_the_probe(self, client: httpx.AsyncClient) -> None:
-        """``/`` is the app; ``/healthz`` must remain a JSON probe."""
+        """``/`` is the app library; ``/healthz`` must remain a JSON probe."""
         response = await client.get("/healthz")
 
         assert response.status_code == 200

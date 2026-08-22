@@ -1,0 +1,20 @@
+[
+  {
+    "id": "console",
+    "name": "Console",
+    "lede": "Event log. Stays on this iPad.",
+    "href": "console.html"
+  },
+  {
+    "id": "notes",
+    "name": "Notes",
+    "lede": "Field notes. Stays on this iPad.",
+    "href": "notes.html"
+  },
+  {
+    "id": "template",
+    "name": "New app",
+    "lede": "Copy template.html, then list it here.",
+    "href": "template.html"
+  }
+]
