@@ -14,10 +14,21 @@ from fastapi import Depends, Request
 
 from m4d.config import Settings
 from m4d.db.engine import Database
+from m4d.services.antivirus import AntivirusService
+from m4d.services.endpoints import EndpointService
 from m4d.services.events import EventService
 from m4d.services.health import HealthService
+from m4d.services.optimizers import OptimizerService
 
-__all__ = ["DatabaseDep", "EventServiceDep", "HealthServiceDep", "SettingsDep"]
+__all__ = [
+    "AntivirusServiceDep",
+    "DatabaseDep",
+    "EndpointServiceDep",
+    "EventServiceDep",
+    "HealthServiceDep",
+    "OptimizerServiceDep",
+    "SettingsDep",
+]
 
 
 def get_settings(request: Request) -> Settings:
@@ -38,6 +49,24 @@ def get_event_service(request: Request) -> EventService:
     return service
 
 
+def get_endpoint_service(request: Request) -> EndpointService:
+    """Return the fleet inventory use cases."""
+    service: EndpointService = request.app.state.endpoint_service
+    return service
+
+
+def get_antivirus_service(request: Request) -> AntivirusService:
+    """Return the scan and finding use cases."""
+    service: AntivirusService = request.app.state.antivirus_service
+    return service
+
+
+def get_optimizer_service(request: Request) -> OptimizerService:
+    """Return the optimizer use cases."""
+    service: OptimizerService = request.app.state.optimizer_service
+    return service
+
+
 def get_health_service(request: Request) -> HealthService:
     """Return the health probes."""
     service: HealthService = request.app.state.health_service
@@ -47,4 +76,7 @@ def get_health_service(request: Request) -> HealthService:
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DatabaseDep = Annotated[Database, Depends(get_database)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
+EndpointServiceDep = Annotated[EndpointService, Depends(get_endpoint_service)]
+AntivirusServiceDep = Annotated[AntivirusService, Depends(get_antivirus_service)]
+OptimizerServiceDep = Annotated[OptimizerService, Depends(get_optimizer_service)]
 HealthServiceDep = Annotated[HealthService, Depends(get_health_service)]

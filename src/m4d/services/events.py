@@ -9,7 +9,7 @@ from uuid import UUID
 
 from m4d.domain.errors import ConflictError, NotFoundError
 from m4d.domain.events import EventFilter, NewEvent, SystemEvent
-from m4d.domain.pagination import Cursor, Page, normalise_page_size
+from m4d.domain.pagination import Cursor, Page, normalise_page_size, take_page
 from m4d.domain.ports import Clock, UnitOfWork
 
 __all__ = ["EventService", "RecordResult"]
@@ -122,10 +122,8 @@ class EventService:
                 limit=page_size + 1,
             )
 
-        items = tuple(rows[:page_size])
-        next_cursor = (
-            Cursor(occurred_at=items[-1].occurred_at, id=items[-1].id).encode()
-            if len(rows) > page_size and items
-            else None
+        return take_page(
+            rows,
+            page_size,
+            position=lambda event: Cursor(occurred_at=event.occurred_at, id=event.id),
         )
-        return Page(items=items, next_cursor=next_cursor)

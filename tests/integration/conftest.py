@@ -32,7 +32,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 #: Every table the suite truncates between tests. `alembic_version` is
 #: deliberately excluded: wiping it would undo the migration state.
-MANAGED_TABLES = ("system_event",)
+MANAGED_TABLES = ("finding", "scan", "optimization_plan", "endpoint", "system_event")
 
 
 @pytest.fixture(scope="session")

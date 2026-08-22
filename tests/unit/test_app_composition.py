@@ -22,6 +22,14 @@ class TestRoutes:
         assert {"/healthz", "/readyz", "/v1/events", "/v1/events/{event_id}"} <= (
             paths | schema_paths
         )
+        assert {
+            "/v1/endpoints",
+            "/v1/endpoints/{endpoint_id}",
+            "/v1/fleet",
+            "/v1/scans",
+            "/v1/findings",
+            "/v1/optimizer/plans",
+        } <= (paths | schema_paths)
 
     def test_documents_both_create_outcomes(self) -> None:
         """201 for a new event and 200 for a replay must both be discoverable."""

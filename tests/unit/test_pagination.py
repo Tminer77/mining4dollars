@@ -14,6 +14,7 @@ from m4d.domain.pagination import (
     Cursor,
     Page,
     normalise_page_size,
+    take_page,
 )
 
 AN_INSTANT = dt.datetime(2026, 8, 10, 12, 30, 45, 123456, tzinfo=dt.UTC)
@@ -97,3 +98,25 @@ def test_cursor_ordering_is_total() -> None:
     first = Cursor(occurred_at=AN_INSTANT, id=uuid4())
     second = Cursor(occurred_at=AN_INSTANT, id=uuid4())
     assert first.encode() != second.encode()
+
+
+def test_take_page_overfetch_produces_a_cursor() -> None:
+    rows = [1, 2, 3, 4]
+    page = take_page(
+        rows,
+        3,
+        position=lambda n: Cursor(occurred_at=AN_INSTANT, id=UUID(int=n)),
+    )
+    assert page.items == (1, 2, 3)
+    assert page.has_more is True
+
+
+def test_take_page_exact_fit_is_terminal() -> None:
+    rows = [1, 2, 3]
+    page = take_page(
+        rows,
+        3,
+        position=lambda n: Cursor(occurred_at=AN_INSTANT, id=UUID(int=n)),
+    )
+    assert page.items == (1, 2, 3)
+    assert page.next_cursor is None

@@ -1,17 +1,22 @@
 # mining4dollars
 
-Foundation services for the mining4dollars platform.
+Company control plane for AI antivirus and machine optimizers.
 
 This repository is the load-bearing base the rest of the product is built on:
 configuration, structured logging, request correlation, a transactional
 persistence layer, a uniform error contract, migrations, and a test suite that
 runs against a real PostgreSQL database.
 
-It currently ships one working vertical slice — an append-only **system event
-log** — that exercises every layer end to end. The slice is real, not a
-placeholder: an activity record is something every subsystem built here will
-need. See [Adding a feature](#adding-a-feature) for the path a new capability
-follows through the same layers.
+It ships two working vertical slices:
+
+- an append-only **system event log**, the activity record every subsystem
+  writes to
+- **Shield** — fleet inventory, scan ingest, threat classification, quarantine,
+  and optimizer plans
+
+See [Adding a feature](#adding-a-feature) for the path a new capability follows
+through the same layers, and [`docs/shield.md`](docs/shield.md) for the product
+domain.
 
 - **Language:** Python 3.12
 - **API:** FastAPI, async end to end
@@ -46,6 +51,21 @@ curl -X POST localhost:8000/v1/events \
   -d '{"source":"demo","kind":"service.started","severity":"info"}'
 
 curl localhost:8000/v1/events?limit=10
+```
+
+Shield — enrol a miner, scan it, isolate on a confirmed sample, then propose a tune:
+
+```bash
+ENDPOINT=$(curl -s -X POST localhost:8000/v1/endpoints \
+  -H 'Content-Type: application/json' \
+  -d '{"hostname":"rig-01.site","platform":"linux","role":"miner"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+
+curl -X POST localhost:8000/v1/endpoints/$ENDPOINT/scans \
+  -H 'Content-Type: application/json' \
+  -d '{"kind":"quick"}'
+
+curl localhost:8000/v1/fleet
 ```
 
 `make help` lists every development task.
@@ -198,6 +218,7 @@ The event slice is the worked example; a new capability follows the same path.
 
 ## Status
 
-The foundation is complete and verified. The domain slice is deliberately
-generic: the platform's specific entities are not yet modelled, and adding them
-is the next step.
+The foundation is complete and verified. Shield is the first product domain:
+fleet inventory, classified findings, automatic isolation, and optimizer plans.
+Classification is deterministic company policy so it is testable without a
+model; a later adapter can wrap it without changing scans or quarantine.

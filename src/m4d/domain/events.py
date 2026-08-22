@@ -19,6 +19,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from m4d.domain.errors import ValidationError
+from m4d.domain.primitives import require_aware, require_text
 
 __all__ = ["EventFilter", "EventSeverity", "NewEvent", "SystemEvent"]
 
@@ -70,21 +71,6 @@ _SEVERITY_RANK: dict[EventSeverity, int] = {
 }
 
 
-def _require_text(value: str, *, name: str, max_length: int) -> str:
-    """Validate and normalise a short identifying string."""
-    cleaned = value.strip()
-    if not cleaned:
-        raise ValidationError(f"{name} must not be blank.", field=name)
-    if len(cleaned) > max_length:
-        raise ValidationError(
-            f"{name} must be at most {max_length} characters.",
-            field=name,
-            length=len(cleaned),
-            max_length=max_length,
-        )
-    return cleaned
-
-
 @dataclass(frozen=True, slots=True)
 class NewEvent:
     """A request to record an event; an event that does not have an identity yet.
@@ -104,17 +90,17 @@ class NewEvent:
     def __post_init__(self) -> None:
         # Frozen dataclasses need object.__setattr__ to normalise in place.
         object.__setattr__(
-            self, "source", _require_text(self.source, name="source", max_length=MAX_SOURCE_LENGTH)
+            self, "source", require_text(self.source, name="source", max_length=MAX_SOURCE_LENGTH)
         )
         object.__setattr__(
-            self, "kind", _require_text(self.kind, name="kind", max_length=MAX_KIND_LENGTH)
+            self, "kind", require_text(self.kind, name="kind", max_length=MAX_KIND_LENGTH)
         )
 
         if self.idempotency_key is not None:
             object.__setattr__(
                 self,
                 "idempotency_key",
-                _require_text(
+                require_text(
                     self.idempotency_key,
                     name="idempotency_key",
                     max_length=MAX_IDEMPOTENCY_KEY_LENGTH,
@@ -122,7 +108,9 @@ class NewEvent:
             )
 
         if self.occurred_at is not None:
-            object.__setattr__(self, "occurred_at", _require_aware(self.occurred_at))
+            object.__setattr__(
+                self, "occurred_at", require_aware(self.occurred_at, field="occurred_at")
+            )
 
     def materialise(self, *, now: dt.datetime) -> SystemEvent:
         """Give this request an identity and a recording time.
@@ -140,22 +128,6 @@ class NewEvent:
             recorded_at=now,
             idempotency_key=self.idempotency_key,
         )
-
-
-def _require_aware(value: dt.datetime) -> dt.datetime:
-    """Reject naive datetimes and normalise to UTC.
-
-    Naive timestamps are the classic source of off-by-hours bugs once a second
-    region or a daylight-saving boundary is involved. The domain only ever holds
-    timezone-aware UTC values.
-    """
-    if value.tzinfo is None:
-        raise ValidationError(
-            "Timestamps must include a timezone offset.",
-            field="occurred_at",
-            value=value.isoformat(),
-        )
-    return value.astimezone(dt.UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,7 +186,7 @@ class EventFilter:
         for name in ("occurred_after", "occurred_before"):
             value: dt.datetime | None = getattr(self, name)
             if value is not None:
-                object.__setattr__(self, name, _require_aware(value))
+                object.__setattr__(self, name, require_aware(value, field=name))
 
         if (
             self.occurred_after is not None
