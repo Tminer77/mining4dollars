@@ -448,7 +448,17 @@
     navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(() => {});
   }
 
+  function bindSplash() {
+    const splash = document.getElementById("splash");
+    if (!splash) return;
+    window.setTimeout(() => splash.classList.add("is-done"), 1200);
+    window.setTimeout(() => {
+      splash.hidden = true;
+    }, 1700);
+  }
+
   resize();
+  bindSplash();
   bindInstall();
   bindSense();
   sampleM4();

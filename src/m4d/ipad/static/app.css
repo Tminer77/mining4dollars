@@ -701,6 +701,40 @@ a.btn.primary {
   touch-action: none;
 }
 
+.inner-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 16;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  background: #030308;
+  transition: opacity 0.45s ease;
+}
+
+.inner-splash.is-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.inner-splash img,
+.inner-icon {
+  border-radius: 22%;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.inner-splash-name {
+  letter-spacing: 0.28em;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.inner-icon {
+  width: 60px;
+  height: 60px;
+}
+
 .inner-bar {
   position: fixed;
   top: 0;
