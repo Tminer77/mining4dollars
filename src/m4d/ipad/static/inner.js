@@ -383,7 +383,7 @@
       sheet.hidden = true;
       return;
     }
-    sheet.hidden = sessionStorage.getItem(key) === "session";
+    sheet.hidden = true;
     document.getElementById("install-dismiss").addEventListener("click", () => {
       sessionStorage.setItem(key, "session");
       sheet.hidden = true;

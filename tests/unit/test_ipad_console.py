@@ -126,7 +126,7 @@ class TestInstallSurface:
         response = await client.get("/sw.js")
 
         assert response.status_code == 200
-        assert "m4d-ipad-v8" in response.text
+        assert "m4d-ipad-v9" in response.text
         assert "./console.html" in response.text
         assert "./notes.html" in response.text
         assert "./inner.html" in response.text
