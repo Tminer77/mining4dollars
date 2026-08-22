@@ -1,16 +1,16 @@
 /* M4D iPad console — keep the shell and the log on the device. */
-const CACHE = "m4d-ipad-v3";
+const CACHE = "m4d-ipad-v4";
 const SHELL = [
-  "/",
-  "/manifest.webmanifest",
-  "/apple-touch-icon.png",
-  "/ipad/app.css",
-  "/ipad/app.js",
-  "/ipad/store.js",
-  "/ipad/icons/icon-180.png",
-  "/ipad/icons/icon-192.png",
-  "/ipad/icons/icon-512.png",
-  "/ipad/icons/favicon.svg",
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./app.css",
+  "./app.js",
+  "./store.js",
+  "./icons/icon-180.png",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/favicon.svg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -43,11 +43,11 @@ self.addEventListener("fetch", (event) => {
 
   // Live API and probes always go to the network.
   if (
-    url.pathname.startsWith("/v1/") ||
-    url.pathname === "/healthz" ||
-    url.pathname === "/readyz" ||
-    url.pathname === "/docs" ||
-    url.pathname === "/openapi.json"
+    url.pathname.endsWith("/healthz") ||
+    url.pathname.endsWith("/readyz") ||
+    url.pathname.includes("/v1/") ||
+    url.pathname.endsWith("/docs") ||
+    url.pathname.endsWith("/openapi.json")
   ) {
     return;
   }
@@ -62,7 +62,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => cached || caches.match("/"));
+        .catch(() => cached || caches.match(new URL("./", self.location)));
       return cached || fetched;
     }),
   );

@@ -40,12 +40,26 @@ async def manifest() -> FileResponse:
 
 @router.get("/sw.js")
 async def service_worker() -> FileResponse:
-    """Service worker scoped to the whole origin."""
-    return _file(
-        "sw.js",
-        "application/javascript; charset=utf-8",
-        {"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
-    )
+    """Service worker. Scope is this directory so GitHub Pages can host it too."""
+    return _file("sw.js", "application/javascript; charset=utf-8", _NO_STORE)
+
+
+@router.get("/app.css")
+async def stylesheet() -> FileResponse:
+    """Console stylesheet, same file as ``/ipad/app.css``."""
+    return _file("app.css", "text/css; charset=utf-8")
+
+
+@router.get("/app.js")
+async def script() -> FileResponse:
+    """Console script, same file as ``/ipad/app.js``."""
+    return _file("app.js", "application/javascript; charset=utf-8")
+
+
+@router.get("/store.js")
+async def store() -> FileResponse:
+    """On-device store, same file as ``/ipad/store.js``."""
+    return _file("store.js", "application/javascript; charset=utf-8")
 
 
 @router.get("/apple-touch-icon.png")
@@ -63,4 +77,6 @@ def mount_ipad(app: FastAPI) -> None:
     that nothing else claimed.
     """
     app.include_router(router)
-    app.mount("/ipad", StaticFiles(directory=static_directory()), name="ipad-assets")
+    root = static_directory()
+    app.mount("/icons", StaticFiles(directory=root / "icons"), name="ipad-icons")
+    app.mount("/ipad", StaticFiles(directory=root), name="ipad-assets")

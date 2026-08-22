@@ -39,7 +39,8 @@ class TestConsoleShell:
         assert 'rel="manifest"' in body
         assert "Add to Home Screen" in body
         assert "this iPad" in body
-        assert "/ipad/store.js" in body
+        assert 'src="store.js"' in body
+        assert 'href="app.css"' in body
         assert "Search this iPad" in body
         assert 'data-view="settings"' in body
 
@@ -50,7 +51,8 @@ class TestConsoleShell:
         assert "manifest" in response.headers["content-type"]
         manifest = response.json()
         assert manifest["display"] == "standalone"
-        assert manifest["start_url"] == "/"
+        assert manifest["start_url"] == "./"
+        assert manifest["scope"] == "./"
         assert manifest["short_name"] == "M4D"
 
     async def test_service_worker_is_allowed_at_root(self, client: httpx.AsyncClient) -> None:
@@ -58,9 +60,8 @@ class TestConsoleShell:
 
         assert response.status_code == 200
         assert "javascript" in response.headers["content-type"]
-        assert response.headers["service-worker-allowed"] == "/"
-        assert "m4d-ipad-v3" in response.text
-        assert "/ipad/store.js" in response.text
+        assert "m4d-ipad-v4" in response.text
+        assert "./store.js" in response.text
 
     async def test_apple_touch_icon_is_a_png(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/apple-touch-icon.png")
@@ -70,13 +71,15 @@ class TestConsoleShell:
         assert response.content[:8] == b"\x89PNG\r\n\x1a\n"
 
     async def test_assets_are_served_under_ipad(self, client: httpx.AsyncClient) -> None:
-        css = await client.get("/ipad/app.css")
-        js = await client.get("/ipad/app.js")
-        store = await client.get("/ipad/store.js")
+        css = await client.get("/app.css")
+        js = await client.get("/app.js")
+        store = await client.get("/store.js")
+        nested = await client.get("/ipad/app.css")
 
         assert css.status_code == 200
         assert js.status_code == 200
         assert store.status_code == 200
+        assert nested.status_code == 200
         assert "safe-area-inset" in css.text
         assert "serviceWorker" in js.text
         assert "indexedDB" in store.text

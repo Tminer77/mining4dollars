@@ -555,7 +555,7 @@
 
   function registerWorker() {
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
+    navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(() => {
       /* Installation still works without a worker; the shell just will not stay warm offline. */
     });
   }

@@ -23,6 +23,10 @@ with Safari's Add to Home Screen.
 - IndexedDB on the device is the source of truth the operator sees. New
   events are written there first and posted to the API when it answers.
   The server is a replica, not a requirement for using the console.
+- Asset URLs are relative so the same files can be served by FastAPI at
+  ``/`` and by GitHub Pages at ``https://tminer77.github.io/mining4dollars/``.
+  That HTTPS origin is what lets Safari Add to Home Screen from an iPad
+  that cannot reach a local process.
 - The console is a delivery surface. It calls the public HTTP API. It does
   not import domain or database code.
 

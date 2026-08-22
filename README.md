@@ -41,10 +41,10 @@ cp .env.example .env      # then edit M4D_DATABASE_URL
 The API is then on <http://localhost:8000>, with interactive documentation at
 `/docs` (served everywhere except staging and production).
 
-On an iPad, open that URL in Safari, tap **Share**, then **Add to Home Screen**.
-The console stays on the iPad as its own app. Events recorded there are stored
-on the device and still work with no network; they copy to `/v1/events` when
-the API is reachable.
+On an iPad, open the console in Safari, tap **Share**, then **Add to Home Screen**.
+The public shell is at <https://tminer77.github.io/mining4dollars/>. Events
+recorded there are stored on the device and still work with no network; they
+copy to `/v1/events` when an API on the same origin is reachable.
 
 ```bash
 curl -X POST localhost:8000/v1/events \
