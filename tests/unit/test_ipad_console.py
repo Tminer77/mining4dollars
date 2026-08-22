@@ -73,6 +73,7 @@ class TestConsoleApp:
         assert js.status_code == 200
         assert store.status_code == 200
         assert "safe-area-inset" in css.text
+        assert ".sheet[hidden]" in css.text
         assert "serviceWorker" in js.text
         assert "allNotes" in store.text
         assert "navigator.share" in js.text
@@ -96,6 +97,7 @@ class TestInnerApp:
         assert 'src="icons/icon-180.png"' in page.text
         assert 'id="splash"' in page.text
         assert "inner-icon" in page.text
+        assert "inner-dock" in page.text
         assert 'id="install-profile"' in page.text
         assert "inner.mobileconfig" in page.text
         assert "bindInstall" in script.text or "install-chip" in script.text
@@ -129,7 +131,7 @@ class TestInstallSurface:
         response = await client.get("/sw.js")
 
         assert response.status_code == 200
-        assert "m4d-ipad-v10" in response.text
+        assert "m4d-ipad-v11" in response.text
         assert "./console.html" in response.text
         assert "./notes.html" in response.text
         assert "./inner.html" in response.text

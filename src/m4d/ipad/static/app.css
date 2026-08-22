@@ -525,6 +525,10 @@ a.btn.primary {
   z-index: 20;
 }
 
+.sheet[hidden] {
+  display: none;
+}
+
 .sheet-card {
   width: min(640px, 100%);
   max-height: min(86vh, 860px);
@@ -787,11 +791,42 @@ a.btn.primary {
 .inner-legend {
   position: fixed;
   left: calc(16px + var(--safe-l));
-  bottom: calc(14px + var(--safe-b));
+  bottom: calc(118px + var(--safe-b));
   z-index: 4;
   max-width: 420px;
   margin: 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.inner-dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 14px 22px 10px;
+  border-radius: 28px;
+  background: rgba(18, 18, 24, 0.72);
+  border: 1px solid rgba(227, 197, 122, 0.2);
+  backdrop-filter: blur(16px);
+}
+
+.inner-dock-slot {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+.inner-dock-slot img {
+  width: 72px;
+  height: 72px;
+  border-radius: 22%;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
