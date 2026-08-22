@@ -392,6 +392,24 @@
       sessionStorage.removeItem(key);
       sheet.hidden = false;
     });
+    const profile = document.getElementById("install-profile");
+    if (profile) {
+      const href = new URL("inner.mobileconfig", document.baseURI);
+      href.searchParams.set("start", new URL("inner.html", document.baseURI).href);
+      profile.setAttribute("href", href.pathname + href.search);
+    }
+    const copy = document.getElementById("copy-link");
+    if (copy) {
+      copy.addEventListener("click", async () => {
+        const link = new URL("./", document.baseURI).href;
+        try {
+          await navigator.clipboard.writeText(link);
+          copy.textContent = "Copied. Paste in Safari.";
+        } catch {
+          window.prompt("Copy this into Safari", link);
+        }
+      });
+    }
   }
 
   function bindSense() {

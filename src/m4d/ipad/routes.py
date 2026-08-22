@@ -8,11 +8,12 @@ and keep the shell available offline.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, Response
 
 from m4d.ipad.paths import static_directory
+from m4d.ipad.webclip import webclip_response
 
 __all__ = ["mount_ipad"]
 
@@ -125,6 +126,12 @@ async def store() -> FileResponse:
 async def apple_touch_icon() -> FileResponse:
     """Icon Safari requests when adding the app to the home screen."""
     return FileResponse(static_directory() / "icons" / "icon-180.png", media_type="image/png")
+
+
+@router.get("/inner.mobileconfig")
+async def inner_webclip(request: Request, start: str | None = None) -> Response:
+    """Unsigned profile that puts INNER on this iPad's home screen."""
+    return webclip_response(request, start)
 
 
 def mount_ipad(app: FastAPI) -> None:

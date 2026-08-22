@@ -43,13 +43,12 @@
     <div id="install" class="sheet">
       <div class="sheet-card install-card">
         <h2>This is your app. Put it on this iPad.</h2>
-        <ol>
-          <li>Tap <strong>Share</strong></li>
-          <li>Tap <strong>Add to Home Screen</strong></li>
-          <li>Tap <strong>Add</strong></li>
-        </ol>
-        <p>INNER opens from your icon after that. The log and this display stay on this iPad.</p>
-        <button type="button" class="btn primary" id="install-dismiss">Later this session</button>
+        <p>Open this page in <strong>Safari</strong>, then tap install. Settings will ask to add INNER.</p>
+        <a class="btn primary" id="install-profile" href="inner.mobileconfig">Install on this iPad</a>
+        <p>If Settings does not open: <strong>Settings → General → VPN &amp; Device Management → INNER → Install</strong>.</p>
+        <p>Or in Safari: Share → Add to Home Screen → Add.</p>
+        <button type="button" class="btn" id="copy-link">Copy Safari link</button>
+        <button type="button" class="btn" id="install-dismiss">Later this session</button>
       </div>
     </div>
     <script src="store.js" defer></script>

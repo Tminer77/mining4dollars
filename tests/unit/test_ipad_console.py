@@ -93,7 +93,10 @@ class TestInnerApp:
         assert "Keep on this iPad" in page.text
         assert "Add to Home Screen" in page.text
         assert 'id="install-chip"' in page.text
+        assert 'id="install-profile"' in page.text
+        assert "inner.mobileconfig" in page.text
         assert "bindInstall" in script.text or "install-chip" in script.text
+        assert "inner.mobileconfig" in script.text
 
 
 class TestNotesApp:
@@ -123,7 +126,7 @@ class TestInstallSurface:
         response = await client.get("/sw.js")
 
         assert response.status_code == 200
-        assert "m4d-ipad-v7" in response.text
+        assert "m4d-ipad-v8" in response.text
         assert "./console.html" in response.text
         assert "./notes.html" in response.text
         assert "./inner.html" in response.text
@@ -143,6 +146,49 @@ class TestInstallSurface:
         assert "M4DStore" in response.text
 
 
+class TestHomeScreenProfile:
+    async def test_profile_puts_inner_on_the_home_screen(self, client: httpx.AsyncClient) -> None:
+        response = await client.get("/inner.mobileconfig")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/x-apple-aspen-config")
+        body = response.text
+        assert "com.apple.webClip.managed" in body
+        assert "INNER" in body
+        assert "http://testserver/inner.html" in body
+        assert "INNER.mobileconfig" in response.headers.get("content-disposition", "")
+
+    async def test_profile_uses_the_public_host(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(
+            "/inner.mobileconfig",
+            headers={
+                "host": "donor-implies-ips-voted.trycloudflare.com",
+                "x-forwarded-proto": "https",
+                "x-forwarded-host": "donor-implies-ips-voted.trycloudflare.com",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "https://donor-implies-ips-voted.trycloudflare.com/inner.html" in response.text
+
+    async def test_profile_accepts_a_same_origin_start(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(
+            "/inner.mobileconfig",
+            params={"start": "http://testserver/inner.html"},
+        )
+
+        assert response.status_code == 200
+        assert "http://testserver/inner.html" in response.text
+
+    async def test_profile_rejects_a_foreign_start(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(
+            "/inner.mobileconfig",
+            params={"start": "https://evil.example/inner.html"},
+        )
+
+        assert response.status_code == 400
+
+
 class TestConsoleDoesNotStealTheApi:
     async def test_health_route_is_still_the_probe(self, client: httpx.AsyncClient) -> None:
         """``/`` is INNER; ``/healthz`` must remain a JSON probe."""
@@ -155,3 +201,4 @@ class TestConsoleDoesNotStealTheApi:
         schema = create_app(Settings(database_url=UNIT_TEST_DSN, log_format="console")).openapi()
         assert "/" not in schema["paths"]
         assert "/sw.js" not in schema["paths"]
+        assert "/inner.mobileconfig" not in schema["paths"]
