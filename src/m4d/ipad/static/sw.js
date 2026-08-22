@@ -1,5 +1,5 @@
 /* M4D iPad console — keep the shell and the log on the device. */
-const CACHE = "m4d-ipad-v2";
+const CACHE = "m4d-ipad-v3";
 const SHELL = [
   "/",
   "/manifest.webmanifest",

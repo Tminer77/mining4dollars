@@ -7,6 +7,8 @@
   const EVENTS = "events";
   const DEVICE_KEY = "m4d.ipad.deviceId";
 
+  const NAME_KEY = "m4d.ipad.deviceName";
+
   function deviceId() {
     let id = localStorage.getItem(DEVICE_KEY);
     if (!id) {
@@ -14,6 +16,16 @@
       localStorage.setItem(DEVICE_KEY, id);
     }
     return id;
+  }
+
+  function deviceName() {
+    return localStorage.getItem(NAME_KEY) || "iPad";
+  }
+
+  function setDeviceName(name) {
+    const cleaned = String(name || "").trim() || "iPad";
+    localStorage.setItem(NAME_KEY, cleaned);
+    return cleaned;
   }
 
   function openDb() {
@@ -92,6 +104,21 @@
     db.close();
   }
 
+  async function exportBundle() {
+    return {
+      device_id: deviceId(),
+      device_name: deviceName(),
+      exported_at: new Date().toISOString(),
+      events: await allEvents(),
+    };
+  }
+
+  async function clearAll() {
+    const db = await openDb();
+    await requestToPromise(asStore(db, "readwrite").clear());
+    db.close();
+  }
+
   function localEvent({ source, kind, severity, payload, idempotency_key }) {
     const now = new Date().toISOString();
     return {
@@ -111,12 +138,16 @@
 
   window.M4DStore = {
     deviceId,
+    deviceName,
+    setDeviceName,
     putEvent,
     deleteEvent,
     allEvents,
     unsynced,
     replaceLocal,
     rememberRemote,
+    exportBundle,
+    clearAll,
     localEvent,
   };
 })();

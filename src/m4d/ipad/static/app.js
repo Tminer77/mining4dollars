@@ -36,7 +36,12 @@
     filterSource: $("filter-source"),
     filterKind: $("filter-kind"),
     filterSeverity: $("filter-severity"),
+    search: $("search"),
     lede: $("events-lede"),
+    settingsPane: $("settings-pane"),
+    deviceName: $("device-name"),
+    deviceId: $("device-id"),
+    brandSub: document.querySelector(".brand-sub"),
   };
 
   function requestId() {
@@ -80,32 +85,32 @@
       source: els.filterSource.value.trim(),
       kind: els.filterKind.value.trim(),
       minSeverity: els.filterSeverity.value,
+      query: els.search.value.trim().toLowerCase(),
     };
   }
 
   const SEVERITY_RANK = { debug: 10, info: 20, warning: 30, error: 40, critical: 50 };
 
   function matches(event) {
-    const { source, kind, minSeverity } = filters();
+    const { source, kind, minSeverity, query } = filters();
     if (source && event.source !== source) return false;
     if (kind && event.kind !== kind) return false;
     if (minSeverity && (SEVERITY_RANK[event.severity] || 0) < (SEVERITY_RANK[minSeverity] || 0)) {
       return false;
     }
-    return true;
-  }
-
-  function mergeById(rows) {
-    const map = new Map();
-    for (const event of rows) {
-      map.set(event.id, event);
+    if (query) {
+      const hay = [
+        event.kind,
+        event.source,
+        event.severity,
+        event.id,
+        JSON.stringify(event.payload || {}),
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(query)) return false;
     }
-    return [...map.values()].sort((left, right) => {
-      if (left.occurred_at === right.occurred_at) {
-        return right.id < left.id ? 1 : -1;
-      }
-      return left.occurred_at < right.occurred_at ? 1 : -1;
-    });
+    return true;
   }
 
   async function refreshFromDevice() {
@@ -214,6 +219,10 @@
     if (!event) return;
     els.detailCard.innerHTML = `
       <h2></h2>
+      <div class="actions">
+        <button type="button" class="btn share-event">Share</button>
+        <button type="button" class="btn copy-event">Copy id</button>
+      </div>
       <dl class="kv">
         <dt>Severity</dt><dd><span class="badge"></span></dd>
         <dt>Source</dt><dd class="src"></dd>
@@ -237,16 +246,21 @@
     els.detailCard.querySelector(".kept").textContent =
       event.synced === false ? "Kept locally, not on the server yet" : "Kept on this iPad";
     els.detailCard.querySelector(".payload").textContent = JSON.stringify(event.payload, null, 2);
+    els.detailCard.querySelector(".share-event").addEventListener("click", () => shareEvent(event));
+    els.detailCard.querySelector(".copy-event").addEventListener("click", () => copyText(event.id));
   }
 
   function setView(view) {
     state.view = view;
     els.app.classList.toggle("is-status", view === "status");
+    els.app.classList.toggle("is-settings", view === "settings");
     els.statusPane.hidden = view !== "status";
+    els.settingsPane.hidden = view !== "settings";
     document.querySelectorAll(".nav-item").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.view === view);
     });
     if (view === "status") refreshStatus();
+    if (view === "settings") renderSettings();
   }
 
   async function refreshStatus() {
@@ -255,6 +269,7 @@
     cards.push(
       statusCard("This iPad", "The log lives on this device.", {
         device_id: store.deviceId(),
+        device_name: store.deviceName(),
         standalone: isStandalone(),
         kept: local.length,
         waiting_to_sync: local.filter((event) => event.synced === false).length,
@@ -341,6 +356,46 @@
   function closeSheet() {
     els.sheet.hidden = true;
     els.composeError.hidden = true;
+  }
+
+  function renderSettings() {
+    els.deviceName.value = store.deviceName();
+    els.deviceId.textContent = store.deviceId();
+    if (els.brandSub) els.brandSub.textContent = store.deviceName();
+  }
+
+  function copyText(value) {
+    navigator.clipboard.writeText(value).then(
+      () => showToast("Copied"),
+      () => showToast("Could not copy"),
+    );
+  }
+
+  async function sharePayload(title, data, filename) {
+    const text = JSON.stringify(data, null, 2);
+    const file = new File([text], filename, { type: "application/json" });
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ title, files: [file] });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ title, text });
+        return;
+      }
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+    }
+    copyText(text);
+  }
+
+  function shareEvent(event) {
+    sharePayload(event.kind, event, `m4d-event-${event.id}.json`);
+  }
+
+  async function shareLog() {
+    const bundle = await store.exportBundle();
+    await sharePayload(`M4D ${store.deviceName()}`, bundle, `m4d-${store.deviceName()}.json`);
   }
 
   function showToast(message) {
@@ -435,6 +490,22 @@
     $("filter-apply").addEventListener("click", () => loadEvents({ reset: true }).catch(showError));
     $("load-more").addEventListener("click", () => loadEvents().catch(showError));
     $("status-refresh").addEventListener("click", () => refreshStatus());
+    els.search.addEventListener("input", () => refreshFromDevice());
+    $("save-name").addEventListener("click", () => {
+      store.setDeviceName(els.deviceName.value);
+      renderSettings();
+      showToast("Name kept on this iPad");
+    });
+    $("copy-id").addEventListener("click", () => copyText(store.deviceId()));
+    $("share-log").addEventListener("click", () => shareLog().catch(showError));
+    $("clear-log").addEventListener("click", async () => {
+      if (!window.confirm("Clear every event kept on this iPad?")) return;
+      await store.clearAll();
+      state.selectedId = null;
+      state.cursor = null;
+      await refreshFromDevice();
+      showToast("This iPad's log is empty");
+    });
     $("install-dismiss").addEventListener("click", () => {
       sessionStorage.setItem(INSTALL_KEY, "session");
       els.install.hidden = true;
@@ -448,9 +519,24 @@
       if (event.target === els.sheet) closeSheet();
     });
     document.addEventListener("keydown", (event) => {
+      const typing = event.target.closest("input, textarea, select");
       if (event.key === "Escape") {
         closeSheet();
         els.install.hidden = true;
+        if (typing) event.target.blur();
+        return;
+      }
+      if (typing) return;
+      if (event.key === "/" ) {
+        event.preventDefault();
+        setView("events");
+        els.search.focus();
+        return;
+      }
+      if (event.key === "n" || event.key === "N") {
+        event.preventDefault();
+        setView("events");
+        openSheet();
       }
     });
     window.addEventListener("online", () => {
@@ -476,6 +562,7 @@
 
   async function boot() {
     bind();
+    renderSettings();
     els.offline.hidden = navigator.onLine;
     renderInstall();
     registerWorker();

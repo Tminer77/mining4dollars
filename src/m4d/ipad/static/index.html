@@ -37,6 +37,7 @@
             Events
           </button>
           <button type="button" class="nav-item" data-view="status">Status</button>
+          <button type="button" class="nav-item" data-view="settings">This iPad</button>
         </nav>
         <div class="rail-foot">
           <div id="keep-pill" class="pill" data-state="ok">Kept on this iPad</div>
@@ -58,6 +59,16 @@
           </button>
         </header>
         <div class="filters">
+          <label class="field search-field">
+            <span>Search this iPad</span>
+            <input
+              id="search"
+              type="search"
+              placeholder="kind, source, payload"
+              enterkeyhint="search"
+              autocomplete="off"
+            />
+          </label>
           <label class="field">
             <span>Source</span>
             <input id="filter-source" type="text" enterkeyhint="search" autocomplete="off" />
@@ -102,6 +113,31 @@
           <button type="button" class="btn" id="status-refresh">Refresh</button>
         </header>
         <div id="status-body" class="status-body"></div>
+      </section>
+
+      <section class="pane settings-pane" id="settings-pane" hidden>
+        <header class="pane-head">
+          <div>
+            <h1>This iPad</h1>
+            <p class="lede">Name it, share its log, or copy it off the device.</p>
+          </div>
+        </header>
+        <div class="settings-body">
+          <label class="field">
+            <span>Name</span>
+            <input id="device-name" maxlength="64" autocomplete="off" />
+          </label>
+          <button type="button" class="btn primary" id="save-name">Save name</button>
+          <p class="setting-id">Device id: <code id="device-id"></code></p>
+          <div class="settings-actions">
+            <button type="button" class="btn" id="copy-id">Copy device id</button>
+            <button type="button" class="btn primary" id="share-log">Share log</button>
+            <button type="button" class="btn" id="clear-log">Clear this iPad's log</button>
+          </div>
+          <p class="lede">
+            Keyboard: N records, / searches, Esc closes. Share uses the iPad share sheet.
+          </p>
+        </div>
       </section>
     </div>
 

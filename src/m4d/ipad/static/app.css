@@ -216,7 +216,8 @@ h2 {
   padding: 0 22px 14px;
 }
 
-.filters .btn {
+.filters .btn,
+.search-field {
   grid-column: 1 / -1;
 }
 
@@ -266,6 +267,13 @@ h2 {
 
 .event.is-selected {
   background: var(--bg-3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .dot {
@@ -336,9 +344,29 @@ h2 {
 }
 
 .detail-pane,
-.status-pane {
+.status-pane,
+.settings-pane {
   padding: 28px 28px 24px;
   overflow: auto;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 520px;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setting-id {
+  margin: 0;
+  color: var(--muted);
+  word-break: break-all;
 }
 
 .empty {
@@ -501,16 +529,20 @@ h2 {
 }
 
 .app.is-status .list-pane,
-.app.is-status .detail-pane {
+.app.is-status .detail-pane,
+.app.is-settings .list-pane,
+.app.is-settings .detail-pane {
   display: none;
 }
 
-.app.is-status .status-pane {
+.app.is-status .status-pane,
+.app.is-settings .settings-pane {
   display: flex;
   grid-column: 2 / -1;
 }
 
-.status-pane[hidden] {
+.status-pane[hidden],
+.settings-pane[hidden] {
   display: none;
 }
 
@@ -553,8 +585,20 @@ h2 {
     min-height: 34vh;
   }
 
-  .app.is-status .status-pane {
+  .app.is-status .status-pane,
+  .app.is-settings .settings-pane {
     grid-column: 1;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .event:hover,
+  .nav-item:hover {
+    background: var(--bg-3);
+  }
+
+  .btn:hover {
+    filter: brightness(1.08);
   }
 }
 

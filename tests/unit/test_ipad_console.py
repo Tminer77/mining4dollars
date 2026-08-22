@@ -40,6 +40,8 @@ class TestConsoleShell:
         assert "Add to Home Screen" in body
         assert "this iPad" in body
         assert "/ipad/store.js" in body
+        assert "Search this iPad" in body
+        assert 'data-view="settings"' in body
 
     async def test_manifest_is_standalone(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/manifest.webmanifest")
@@ -57,7 +59,7 @@ class TestConsoleShell:
         assert response.status_code == 200
         assert "javascript" in response.headers["content-type"]
         assert response.headers["service-worker-allowed"] == "/"
-        assert "m4d-ipad-v2" in response.text
+        assert "m4d-ipad-v3" in response.text
         assert "/ipad/store.js" in response.text
 
     async def test_apple_touch_icon_is_a_png(self, client: httpx.AsyncClient) -> None:
@@ -79,7 +81,9 @@ class TestConsoleShell:
         assert "serviceWorker" in js.text
         assert "indexedDB" in store.text
         assert "M4DStore" in store.text
+        assert "exportBundle" in store.text
         assert "kept on this iPad" in js.text
+        assert "navigator.share" in js.text
 
 
 class TestConsoleDoesNotStealTheApi:
