@@ -171,7 +171,8 @@ suite still runs offline.
 Adding a capability follows the path the event slice already demonstrates:
 domain entity and port, then table, repository, and migration, then service,
 then wire schemas and routes, with tests at each level. The README has the
-step-by-step version.
+step-by-step version. The first product domain built this way is Shield —
+see [`shield.md`](shield.md).
 
 Two things to keep true:
 

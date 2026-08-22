@@ -72,7 +72,13 @@ async def test_models_and_migrations_agree(database: Database) -> None:
 async def test_schema_contains_the_expected_table(database: Database) -> None:
     async with database.engine.connect() as connection:
         tables = await connection.run_sync(lambda sync: inspect(sync).get_table_names())
-    assert "system_event" in tables
+    assert {
+        "system_event",
+        "endpoint",
+        "scan",
+        "finding",
+        "optimization_plan",
+    } <= set(tables)
 
 
 async def test_keyset_index_exists(database: Database) -> None:
@@ -100,6 +106,24 @@ async def test_idempotency_index_is_partial(database: Database) -> None:
 
     assert "WHERE" in definition.upper()
     assert "IS NOT NULL" in definition.upper()
+
+
+async def test_shield_indexes_exist(database: Database) -> None:
+    """Hostname uniqueness and scan de-duplication are load-bearing."""
+    async with database.engine.connect() as connection:
+        result = await connection.execute(
+            text(
+                "SELECT indexname FROM pg_indexes "
+                "WHERE tablename IN ('endpoint', 'scan', 'finding', 'optimization_plan')"
+            )
+        )
+        indexes = {row[0] for row in result}
+
+    assert "uq_endpoint_hostname" in indexes
+    assert "uq_scan_idempotency_key" in indexes
+    assert "uq_finding_idempotency_key" in indexes
+    assert "uq_optimization_plan_idempotency_key" in indexes
+    assert "ix_endpoint_last_seen_at_id" in indexes
 
 
 async def test_severity_is_constrained(database: Database) -> None:

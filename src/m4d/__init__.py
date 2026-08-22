@@ -1,4 +1,4 @@
-"""mining4dollars platform foundation.
+"""mining4dollars Shield: company AI antivirus and machine optimizers.
 
 The import name is ``m4d``; the distribution is ``mining4dollars``.
 """

@@ -19,12 +19,13 @@ from __future__ import annotations
 import base64
 import binascii
 import datetime as dt
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
 from m4d.domain.errors import ValidationError
 
-__all__ = ["DEFAULT_PAGE_SIZE", "MAX_PAGE_SIZE", "Cursor", "Page"]
+__all__ = ["DEFAULT_PAGE_SIZE", "MAX_PAGE_SIZE", "Cursor", "Page", "take_page"]
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 500
@@ -89,3 +90,19 @@ def normalise_page_size(requested: int | None) -> int:
     if requested < 1:
         raise ValidationError("Page size must be at least 1.", limit=requested)
     return min(requested, MAX_PAGE_SIZE)
+
+
+def take_page[T](
+    rows: Sequence[T],
+    page_size: int,
+    *,
+    position: Callable[[T], Cursor],
+) -> Page[T]:
+    """Cut an over-fetched result into a page and the cursor that continues it.
+
+    Callers fetch ``page_size + 1`` rows. The extra row, if present, proves a
+    further page exists without a ``COUNT(*)``.
+    """
+    items = tuple(rows[:page_size])
+    next_cursor = position(items[-1]).encode() if len(rows) > page_size and items else None
+    return Page(items=items, next_cursor=next_cursor)
