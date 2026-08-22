@@ -8,6 +8,8 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from m4d.db.repositories.events import SqlAlchemyEventRepository
+from m4d.db.repositories.glossary import SqlAlchemyGlossaryRepository
+from m4d.db.repositories.protocol import SqlAlchemyProtocolRepository
 
 __all__ = ["SqlAlchemyUnitOfWork"]
 
@@ -33,6 +35,8 @@ class SqlAlchemyUnitOfWork:
     """
 
     events: SqlAlchemyEventRepository
+    glossary: SqlAlchemyGlossaryRepository
+    protocol: SqlAlchemyProtocolRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -53,6 +57,8 @@ class SqlAlchemyUnitOfWork:
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:
         self._session = self._session_factory()
         self.events = SqlAlchemyEventRepository(self._session)
+        self.glossary = SqlAlchemyGlossaryRepository(self._session)
+        self.protocol = SqlAlchemyProtocolRepository(self._session)
         return self
 
     async def __aexit__(

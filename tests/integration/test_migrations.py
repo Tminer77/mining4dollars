@@ -72,7 +72,14 @@ async def test_models_and_migrations_agree(database: Database) -> None:
 async def test_schema_contains_the_expected_table(database: Database) -> None:
     async with database.engine.connect() as connection:
         tables = await connection.run_sync(lambda sync: inspect(sync).get_table_names())
-    assert "system_event" in tables
+    assert {
+        "system_event",
+        "glossary_term",
+        "protocol_clock",
+        "protocol_node",
+        "protocol_edge",
+        "protocol_tick",
+    } <= set(tables)
 
 
 async def test_keyset_index_exists(database: Database) -> None:

@@ -12,6 +12,7 @@ from typing import Any
 __all__ = [
     "ConflictError",
     "DomainError",
+    "GuardrailError",
     "NotFoundError",
     "ValidationError",
 ]
@@ -53,6 +54,18 @@ class ConflictError(DomainError):
     """The request cannot be applied against the current state."""
 
     code = "conflict"
+
+
+class GuardrailError(ConflictError):
+    """An action that would take the machine off the linear tape.
+
+    Distinct from a :class:`ValidationError` (the input is malformed) and from
+    a generic conflict (the row already exists). A guardrail violation means
+    the request was understood and refused: out-of-order commit, unbound
+    language, a parent that has not yet been committed, a deprecated term.
+    """
+
+    code = "guardrail_violation"
 
 
 class ValidationError(DomainError):

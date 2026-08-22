@@ -16,8 +16,15 @@ from m4d.config import Settings
 from m4d.db.engine import Database
 from m4d.services.events import EventService
 from m4d.services.health import HealthService
+from m4d.services.protocol import ProtocolService
 
-__all__ = ["DatabaseDep", "EventServiceDep", "HealthServiceDep", "SettingsDep"]
+__all__ = [
+    "DatabaseDep",
+    "EventServiceDep",
+    "HealthServiceDep",
+    "ProtocolServiceDep",
+    "SettingsDep",
+]
 
 
 def get_settings(request: Request) -> Settings:
@@ -44,7 +51,14 @@ def get_health_service(request: Request) -> HealthService:
     return service
 
 
+def get_protocol_service(request: Request) -> ProtocolService:
+    """Return the linear timestamp protocol use cases."""
+    service: ProtocolService = request.app.state.protocol_service
+    return service
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DatabaseDep = Annotated[Database, Depends(get_database)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
 HealthServiceDep = Annotated[HealthService, Depends(get_health_service)]
+ProtocolServiceDep = Annotated[ProtocolService, Depends(get_protocol_service)]

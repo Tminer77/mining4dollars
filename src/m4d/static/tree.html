@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tree of Claude — Linear Timestamp Protocol</title>
+  <style>
+    :root {
+      --bg: #07080a;
+      --panel: #10131a;
+      --ink: #e8e4d4;
+      --muted: #8a8474;
+      --gold: #d4a017;
+      --gold-dim: #8a6a12;
+      --line: #2a3344;
+      --proposed: #4a6d8c;
+      --rejected: #a33b3b;
+      --skew: #c45c14;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 16px 22px 10px; border-bottom: 1px solid var(--line);
+    }
+    header h1 { margin: 0; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 12px; }
+    #clock { color: var(--gold); }
+    main { display: grid; grid-template-columns: minmax(280px, 34%) 1fr; min-height: calc(100% - 58px); }
+    section { padding: 16px 22px 32px; }
+    section + section { border-left: 1px solid var(--line); }
+    h2 { margin: 0 0 12px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .tick {
+      display: grid; grid-template-columns: 48px 1fr; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid #1a2030;
+    }
+    .tick .n { color: var(--gold); font-variant-numeric: tabular-nums; }
+    .tick .meta { color: var(--muted); font-size: 11px; }
+    .tick.skew .n { color: var(--skew); }
+    #tree { position: relative; min-height: 420px; }
+    svg { width: 100%; height: 520px; display: block; }
+    .legend { display: flex; gap: 16px; color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+    .swatch { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
+    .err { color: var(--rejected); padding: 20px; }
+    button {
+      background: transparent; color: var(--gold); border: 1px solid var(--gold-dim);
+      padding: 4px 10px; font: inherit; cursor: pointer; letter-spacing: 0.08em;
+    }
+    button:hover { border-color: var(--gold); }
+    #actions { display: flex; gap: 8px; align-items: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Tree of Claude</h1>
+      <p>Linear tape is history. The DAG is a draft until it commits.</p>
+    </div>
+    <div id="actions">
+      <span id="clock">tick —</span>
+      <button type="button" id="refresh">Replay</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Tape</h2>
+      <div id="tape"></div>
+    </section>
+    <section>
+      <h2>Tree</h2>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--gold)"></i>committed</span>
+        <span><i class="swatch" style="background:var(--proposed)"></i>proposed</span>
+        <span><i class="swatch" style="background:var(--rejected)"></i>rejected</span>
+      </div>
+      <div id="tree"></div>
+    </section>
+  </main>
+  <script>
+    const tapeEl = document.getElementById("tape");
+    const treeEl = document.getElementById("tree");
+    const clockEl = document.getElementById("clock");
+
+    function colour(status) {
+      if (status === "committed") return "var(--gold)";
+      if (status === "rejected") return "var(--rejected)";
+      return "var(--proposed)";
+    }
+
+    function drawTree(nodes) {
+      if (!nodes.length) {
+        treeEl.innerHTML = "<p class='meta'>No nodes.</p>";
+        return;
+      }
+      const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+      const depth = {};
+      function d(id, seen) {
+        if (depth[id] != null) return depth[id];
+        if (seen.has(id)) return 0;
+        seen.add(id);
+        const node = byId[id];
+        if (!node || !node.parent_ids.length) {
+          depth[id] = 0;
+          return 0;
+        }
+        depth[id] = 1 + Math.max(...node.parent_ids.map((p) => d(p, seen)));
+        return depth[id];
+      }
+      nodes.forEach((n) => d(n.id, new Set()));
+      const cols = {};
+      nodes.forEach((n) => {
+        const k = depth[n.id] || 0;
+        cols[k] = cols[k] || [];
+        cols[k].push(n);
+      });
+      const width = treeEl.clientWidth || 640;
+      const colCount = Math.max(...Object.keys(cols).map(Number)) + 1;
+      const xGap = Math.max(140, (width - 80) / Math.max(colCount, 1));
+      const positions = {};
+      Object.entries(cols).forEach(([k, list]) => {
+        list.forEach((n, i) => {
+          positions[n.id] = {
+            x: 50 + Number(k) * xGap,
+            y: 40 + i * 72,
+          };
+        });
+      });
+      const height = Math.max(520, ...Object.values(positions).map((p) => p.y + 80));
+      const edges = [];
+      nodes.forEach((n) => {
+        n.parent_ids.forEach((p) => {
+          if (positions[p] && positions[n.id]) {
+            const a = positions[p];
+            const b = positions[n.id];
+            edges.push(`<line x1="${a.x + 90}" y1="${a.y}" x2="${b.x - 8}" y2="${b.y}" stroke="#2a3344" stroke-width="1.2"/>`);
+          }
+        });
+      });
+      const boxes = nodes.map((n) => {
+        const p = positions[n.id];
+        const label = (n.utterance || n.kind).slice(0, 28);
+        const tick = n.instant ? `t${n.instant.tick}` : n.status;
+        return `
+          <g>
+            <rect x="${p.x - 8}" y="${p.y - 18}" width="168" height="44" rx="3"
+              fill="#10131a" stroke="${colour(n.status)}" />
+            <text x="${p.x}" y="${p.y}" fill="${colour(n.status)}" font-size="11">${n.kind} · ${tick}</text>
+            <text x="${p.x}" y="${p.y + 16}" fill="#e8e4d4" font-size="10">${label}</text>
+          </g>`;
+      });
+      treeEl.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMin meet">${edges.join("")}${boxes.join("")}</svg>`;
+    }
+
+    async function load() {
+      try {
+        const response = await fetch("/v1/protocol/tree");
+        if (!response.ok) throw new Error("protocol snapshot failed: " + response.status);
+        const data = await response.json();
+        const head = data.head;
+        clockEl.textContent = head.empty ? "tick —" : `tick ${head.tick} → ${head.next_tick}`;
+        tapeEl.innerHTML = data.tape.map((entry) => `
+          <div class="tick${entry.clock_skewed ? " skew" : ""}">
+            <div class="n">${String(entry.tick).padStart(3, "0")}</div>
+            <div>
+              <div>${entry.kind} · ${entry.utterance}</div>
+              <div class="meta">${entry.wall}${entry.clock_skewed ? " · clock held" : ""} · ${entry.bound_slugs.join(" ")}</div>
+            </div>
+          </div>`).join("") || "<p class='meta'>Tape is empty. Bootstrap first.</p>";
+        drawTree(data.nodes);
+      } catch (error) {
+        tapeEl.innerHTML = `<p class="err">${error.message}</p>`;
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", load);
+    load();
+    setInterval(load, 4000);
+  </script>
+</body>
+</html>

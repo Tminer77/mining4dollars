@@ -149,6 +149,16 @@ so a client writes one error path. Clients branch on `code`, which is stable;
 outside production and suppressed within it. See
 [ADR-0003](adr/0003-problem-details-errors.md).
 
+### Linear time is the control plane
+
+The Tree of Claude is a DAG of proposed jobs. History is a tape of integer
+ticks. The glossary is the closed vocabulary those jobs may speak. Commit is
+the only way from the tree onto the tape, and commit is refused when language
+is unbound or a parent is not yet committed. Wall clocks are recorded; they
+do not get to run the order backwards. See
+[ADR-0008](adr/0008-linear-timestamp-protocol.md) and
+[`docs/protocol.md`](protocol.md).
+
 ## Testing strategy
 
 `tests/unit/` is pure and runs in well under a second. `tests/integration/` runs

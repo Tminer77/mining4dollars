@@ -32,7 +32,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 #: Every table the suite truncates between tests. `alembic_version` is
 #: deliberately excluded: wiping it would undo the migration state.
-MANAGED_TABLES = ("system_event",)
+MANAGED_TABLES = (
+    "protocol_tick",
+    "protocol_edge",
+    "protocol_node",
+    "protocol_clock",
+    "glossary_term",
+    "system_event",
+)
 
 
 @pytest.fixture(scope="session")
@@ -92,7 +99,10 @@ async def database(integration_settings: Settings) -> AsyncIterator[Database]:
 async def clean_tables(database: Database) -> None:
     """Empty the managed tables before each test."""
     async with database.engine.begin() as connection:
-        await connection.execute(text(f"TRUNCATE {', '.join(MANAGED_TABLES)} RESTART IDENTITY"))
+        await connection.execute(
+            text(f"TRUNCATE {', '.join(MANAGED_TABLES)} RESTART IDENTITY CASCADE")
+        )
+        await connection.execute(text("INSERT INTO protocol_clock (id, last_tick) VALUES (1, -1)"))
 
 
 @pytest.fixture

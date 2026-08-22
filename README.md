@@ -7,11 +7,13 @@ configuration, structured logging, request correlation, a transactional
 persistence layer, a uniform error contract, migrations, and a test suite that
 runs against a real PostgreSQL database.
 
-It currently ships one working vertical slice — an append-only **system event
-log** — that exercises every layer end to end. The slice is real, not a
-placeholder: an activity record is something every subsystem built here will
-need. See [Adding a feature](#adding-a-feature) for the path a new capability
-follows through the same layers.
+It currently ships two working vertical slices. The first is an append-only
+**system event log** that exercises every layer end to end. The second is the
+**Linear Timestamp Protocol** — a glossary interpreter, the Tree of Claude, and
+a strictly monotonic commit tape — which is how LLM and agent action is kept on
+the rails. See [Adding a feature](#adding-a-feature) for the path a new
+capability follows through the same layers, and
+[`docs/protocol.md`](docs/protocol.md) for the protocol itself.
 
 - **Language:** Python 3.12
 - **API:** FastAPI, async end to end
@@ -46,6 +48,14 @@ curl -X POST localhost:8000/v1/events \
   -d '{"source":"demo","kind":"service.started","severity":"info"}'
 
 curl localhost:8000/v1/events?limit=10
+
+# Linear Timestamp Protocol — glossary, tree, tape
+curl -X POST localhost:8000/v1/protocol/bootstrap
+curl -X POST localhost:8000/v1/protocol/interpret \
+  -H 'Content-Type: application/json' \
+  -d '{"utterance":"commit the parent node onto the tape"}'
+# Operator view of the same state:
+# http://localhost:8000/tree
 ```
 
 `make help` lists every development task.
@@ -198,6 +208,7 @@ The event slice is the worked example; a new capability follows the same path.
 
 ## Status
 
-The foundation is complete and verified. The domain slice is deliberately
-generic: the platform's specific entities are not yet modelled, and adding them
-is the next step.
+The foundation is complete and verified. The Linear Timestamp Protocol is the
+second slice: a closed glossary, a tree of proposed work, and a linear tape
+that is the only legal history. Platform-specific product entities (mining
+fleet, and so on) are still to be modelled on the same layers.

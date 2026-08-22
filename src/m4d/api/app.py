@@ -19,6 +19,7 @@ from m4d.api.errors import install_error_handlers
 from m4d.api.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
 from m4d.api.routes import events as events_routes
 from m4d.api.routes import health as health_routes
+from m4d.api.routes import protocol as protocol_routes
 from m4d.config import Settings, get_settings
 from m4d.db.engine import Database
 from m4d.db.uow import SqlAlchemyUnitOfWork
@@ -26,6 +27,7 @@ from m4d.observability.logging import setup_logging
 from m4d.services.clock import SystemClock
 from m4d.services.events import EventService
 from m4d.services.health import HealthService
+from m4d.services.protocol import ProtocolService
 
 __all__ = ["create_app"]
 
@@ -49,13 +51,15 @@ def _build_lifespan(
         # Constructed here rather than at import time so that importing the
         # module never opens a socket, and so tests can build an app per case.
         database = Database(settings)
+        clock = SystemClock()
+
+        def uow_factory() -> SqlAlchemyUnitOfWork:
+            return SqlAlchemyUnitOfWork(database.session_factory)
 
         app.state.settings = settings
         app.state.database = database
-        app.state.event_service = EventService(
-            uow_factory=lambda: SqlAlchemyUnitOfWork(database.session_factory),
-            clock=SystemClock(),
-        )
+        app.state.event_service = EventService(uow_factory=uow_factory, clock=clock)
+        app.state.protocol_service = ProtocolService(uow_factory=uow_factory, clock=clock)
         app.state.health_service = HealthService(database)
 
         logger.info(
@@ -114,5 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_routes.router)
     app.include_router(events_routes.router)
+    app.include_router(protocol_routes.router)
+    app.include_router(protocol_routes.tree_router)
 
     return app

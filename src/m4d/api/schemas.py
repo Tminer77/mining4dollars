@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Annotated, Any, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,15 +22,47 @@ from m4d.domain.events import (
     NewEvent,
     SystemEvent,
 )
+from m4d.domain.glossary import (
+    MAX_ALIASES,
+    MAX_DEFINITION_LENGTH,
+    MAX_NAME_LENGTH,
+    MAX_SLUG_LENGTH,
+    MAX_UTTERANCE_LENGTH,
+    GlossaryTerm,
+    Interpretation,
+    NewTerm,
+)
 from m4d.domain.pagination import Page
+from m4d.domain.protocol import (
+    Kind,
+    NodeStatus,
+    ProtocolHead,
+    ProtocolNode,
+    TapeEntry,
+    TreeSnapshot,
+)
+from m4d.services.protocol import BootstrapResult, TapePage
 
 __all__ = [
+    "BindingResponse",
+    "BootstrapResponse",
     "EventCreateRequest",
     "EventPageResponse",
     "EventResponse",
+    "GlossaryTermCreateRequest",
+    "GlossaryTermResponse",
+    "HeadResponse",
+    "InterpretRequest",
+    "InterpretationResponse",
     "LivenessResponse",
+    "NodeProposeRequest",
+    "NodeRejectRequest",
+    "NodeResponse",
     "ProblemDetail",
     "ReadinessResponse",
+    "TapeEntryResponse",
+    "TapePageResponse",
+    "TreeSnapshotResponse",
 ]
 
 
@@ -196,3 +229,277 @@ class ProblemDetail(_Schema):
     code: str
     instance: str | None = None
     request_id: str | None = None
+
+
+class GlossaryTermCreateRequest(_Schema):
+    """Body of ``POST /v1/protocol/terms``."""
+
+    slug: Annotated[str, Field(min_length=1, max_length=MAX_SLUG_LENGTH)]
+    name: Annotated[str, Field(min_length=1, max_length=MAX_NAME_LENGTH)]
+    definition: Annotated[str, Field(min_length=1, max_length=MAX_DEFINITION_LENGTH)]
+    aliases: Annotated[list[str], Field(max_length=MAX_ALIASES)] = Field(default_factory=list)
+
+    def to_domain(self) -> NewTerm:
+        """Translate into the domain's own request object."""
+        return NewTerm(
+            slug=self.slug,
+            name=self.name,
+            definition=self.definition,
+            aliases=tuple(alias for alias in self.aliases if alias.strip()),
+        )
+
+
+class GlossaryTermResponse(_Schema):
+    """A glossary term as returned to clients."""
+
+    id: str
+    slug: str
+    name: str
+    definition: str
+    aliases: list[str]
+    version: int
+    status: str
+    created_at: dt.datetime
+    superseded_by: str | None
+
+    @classmethod
+    def from_domain(cls, term: GlossaryTerm) -> Self:
+        """Build a response from a domain term."""
+        return cls(
+            id=str(term.id),
+            slug=term.slug,
+            name=term.name,
+            definition=term.definition,
+            aliases=list(term.aliases),
+            version=term.version,
+            status=term.status.value,
+            created_at=term.created_at,
+            superseded_by=str(term.superseded_by) if term.superseded_by else None,
+        )
+
+
+class InterpretRequest(_Schema):
+    """Body of ``POST /v1/protocol/interpret``."""
+
+    utterance: Annotated[str, Field(min_length=1, max_length=MAX_UTTERANCE_LENGTH)]
+
+
+class BindingResponse(_Schema):
+    """One glossary binding inside an interpretation."""
+
+    span: str
+    slug: str
+    definition: str
+    version: int
+    status: str
+
+
+class InterpretationResponse(_Schema):
+    """The glossary's reading of an utterance."""
+
+    id: str
+    utterance: str
+    tokens: list[str]
+    bindings: list[BindingResponse]
+    unbound: list[str]
+    deprecated: list[str]
+    complete: bool
+    interpreted_at: dt.datetime
+
+    @classmethod
+    def from_domain(cls, interpretation: Interpretation) -> Self:
+        """Build a response from a domain interpretation."""
+        return cls(
+            id=str(interpretation.id),
+            utterance=interpretation.utterance,
+            tokens=list(interpretation.tokens),
+            bindings=[
+                BindingResponse(
+                    span=binding.span,
+                    slug=binding.slug,
+                    definition=binding.definition,
+                    version=binding.version,
+                    status=binding.status.value,
+                )
+                for binding in interpretation.bindings
+            ],
+            unbound=list(interpretation.unbound),
+            deprecated=list(interpretation.deprecated_slugs),
+            complete=interpretation.is_complete,
+            interpreted_at=interpretation.interpreted_at,
+        )
+
+
+class NodeProposeRequest(_Schema):
+    """Body of ``POST /v1/protocol/nodes``."""
+
+    utterance: Annotated[str, Field(min_length=1, max_length=MAX_UTTERANCE_LENGTH)]
+    kind: Kind = Kind.ACT
+    parent_ids: list[UUID] = Field(default_factory=list)
+
+
+class NodeRejectRequest(_Schema):
+    """Body of ``POST /v1/protocol/nodes/{id}/reject``."""
+
+    reason: Annotated[str, Field(min_length=1, max_length=2000)]
+
+
+class InstantResponse(_Schema):
+    """A position on the linear tape."""
+
+    tick: int
+    wall: dt.datetime
+    id: str
+    clock_skewed: bool
+
+
+class NodeResponse(_Schema):
+    """A Tree of Claude node as returned to clients."""
+
+    id: str
+    kind: Kind
+    utterance: str
+    status: NodeStatus
+    parent_ids: list[str]
+    interpretation: InterpretationResponse | None
+    instant: InstantResponse | None
+    proposed_at: dt.datetime
+    committed_at: dt.datetime | None
+    rejected_at: dt.datetime | None
+    rejection: str | None
+
+    @classmethod
+    def from_domain(cls, node: ProtocolNode) -> Self:
+        """Build a response from a domain node."""
+        instant = None
+        if node.instant is not None:
+            instant = InstantResponse(
+                tick=node.instant.tick,
+                wall=node.instant.wall,
+                id=str(node.instant.id),
+                clock_skewed=node.instant.clock_skewed,
+            )
+        return cls(
+            id=str(node.id),
+            kind=node.kind,
+            utterance=node.utterance,
+            status=node.status,
+            parent_ids=[str(parent_id) for parent_id in node.parent_ids],
+            interpretation=(
+                InterpretationResponse.from_domain(node.interpretation)
+                if node.interpretation is not None
+                else None
+            ),
+            instant=instant,
+            proposed_at=node.proposed_at,
+            committed_at=node.committed_at,
+            rejected_at=node.rejected_at,
+            rejection=node.rejection,
+        )
+
+
+class TapeEntryResponse(_Schema):
+    """One committed tick as replayed from the origin."""
+
+    tick: int
+    wall: dt.datetime
+    id: str
+    clock_skewed: bool
+    node_id: str
+    kind: Kind
+    utterance: str
+    bound_slugs: list[str]
+    recorded_at: dt.datetime
+
+    @classmethod
+    def from_domain(cls, entry: TapeEntry) -> Self:
+        """Build a response from a tape entry."""
+        return cls(
+            tick=entry.instant.tick,
+            wall=entry.instant.wall,
+            id=str(entry.instant.id),
+            clock_skewed=entry.instant.clock_skewed,
+            node_id=str(entry.node_id),
+            kind=entry.kind,
+            utterance=entry.utterance,
+            bound_slugs=list(entry.bound_slugs),
+            recorded_at=entry.recorded_at,
+        )
+
+
+class TapePageResponse(_Schema):
+    """One page of the tape, oldest first."""
+
+    items: list[TapeEntryResponse]
+    next_after_tick: int | None
+
+    @classmethod
+    def from_domain(cls, page: TapePage) -> Self:
+        """Build a response from a domain page."""
+        return cls(
+            items=[TapeEntryResponse.from_domain(entry) for entry in page.items],
+            next_after_tick=page.next_after_tick,
+        )
+
+
+class HeadResponse(_Schema):
+    """The last committed instant."""
+
+    tick: int
+    wall: dt.datetime | None
+    instant_id: str | None
+    empty: bool
+    next_tick: int
+
+    @classmethod
+    def from_domain(cls, head: ProtocolHead) -> Self:
+        """Build a response from the protocol head."""
+        return cls(
+            tick=head.tick,
+            wall=head.wall,
+            instant_id=str(head.instant_id) if head.instant_id else None,
+            empty=head.is_empty,
+            next_tick=head.next_tick,
+        )
+
+
+class TreeSnapshotResponse(_Schema):
+    """The tree and the tape at one moment."""
+
+    head: HeadResponse
+    nodes: list[NodeResponse]
+    tape: list[TapeEntryResponse]
+    glossary_size: int
+    proposed_count: int
+    committed_count: int
+
+    @classmethod
+    def from_domain(cls, snapshot: TreeSnapshot) -> Self:
+        """Build a response from a domain snapshot."""
+        return cls(
+            head=HeadResponse.from_domain(snapshot.head),
+            nodes=[NodeResponse.from_domain(node) for node in snapshot.nodes],
+            tape=[TapeEntryResponse.from_domain(entry) for entry in snapshot.tape],
+            glossary_size=snapshot.glossary_size,
+            proposed_count=snapshot.proposed_count,
+            committed_count=snapshot.committed_count,
+        )
+
+
+class BootstrapResponse(_Schema):
+    """Outcome of ensuring genesis and the core glossary exist."""
+
+    head: HeadResponse
+    genesis: NodeResponse
+    terms_seeded: int
+    was_created: bool
+
+    @classmethod
+    def from_domain(cls, result: BootstrapResult) -> Self:
+        """Build a response from a bootstrap result."""
+        return cls(
+            head=HeadResponse.from_domain(result.head),
+            genesis=NodeResponse.from_domain(result.genesis),
+            terms_seeded=result.terms_seeded,
+            was_created=result.was_created,
+        )

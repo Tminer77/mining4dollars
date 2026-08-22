@@ -13,9 +13,16 @@ from uuid import UUID
 
 from m4d.domain.errors import ConflictError
 from m4d.domain.events import EventFilter, EventSeverity, SystemEvent
+from m4d.domain.glossary import GlossaryTerm, TermStatus, normalise_key
 from m4d.domain.pagination import Cursor
+from m4d.domain.protocol import Kind, ProtocolHead, ProtocolNode, TapeEntry, empty_head
 
-__all__ = ["FakeEventRepository", "FakeUnitOfWork"]
+__all__ = [
+    "FakeEventRepository",
+    "FakeGlossaryRepository",
+    "FakeProtocolRepository",
+    "FakeUnitOfWork",
+]
 
 
 class FakeEventRepository:
@@ -83,6 +90,91 @@ def _matches(event: SystemEvent, filters: EventFilter) -> bool:
     )
 
 
+class FakeGlossaryRepository:
+    """A dictionary pretending to be the glossary table."""
+
+    def __init__(self) -> None:
+        self.by_id: dict[UUID, GlossaryTerm] = {}
+        self.by_slug: dict[str, GlossaryTerm] = {}
+
+    async def add(self, term: GlossaryTerm) -> GlossaryTerm:
+        if term.slug in self.by_slug:
+            raise ConflictError("A glossary term with this slug already exists.")
+        self.by_id[term.id] = term
+        self.by_slug[term.slug] = term
+        return term
+
+    async def save(self, term: GlossaryTerm) -> GlossaryTerm:
+        self.by_id[term.id] = term
+        self.by_slug[term.slug] = term
+        return term
+
+    async def get(self, term_id: UUID) -> GlossaryTerm | None:
+        return self.by_id.get(term_id)
+
+    async def get_by_slug(self, slug: str) -> GlossaryTerm | None:
+        return self.by_slug.get(slug)
+
+    async def find_by_key(self, key: str) -> GlossaryTerm | None:
+        needle = normalise_key(key)
+        for term in self.by_id.values():
+            if needle in term.lookup_keys():
+                return term
+        return None
+
+    async def list_all(self) -> Sequence[GlossaryTerm]:
+        return sorted(
+            self.by_id.values(),
+            key=lambda term: (term.status is TermStatus.DEPRECATED, term.slug),
+        )
+
+
+class FakeProtocolRepository:
+    """In-memory tape, tree, and clock."""
+
+    def __init__(self) -> None:
+        self.head: ProtocolHead = empty_head()
+        self.nodes: dict[UUID, ProtocolNode] = {}
+        self.tape: list[TapeEntry] = []
+
+    async def get_head(self, *, for_update: bool = False) -> ProtocolHead:
+        return self.head
+
+    async def save_head(self, head: ProtocolHead) -> None:
+        self.head = head
+
+    async def add_node(self, node: ProtocolNode) -> ProtocolNode:
+        if node.kind is Kind.GENESIS and any(
+            existing.kind is Kind.GENESIS for existing in self.nodes.values()
+        ):
+            raise ConflictError("genesis has already been committed; the tape has one origin.")
+        if node.id in self.nodes:
+            raise ConflictError("A node with this id already exists.")
+        self.nodes[node.id] = node
+        return node
+
+    async def save_node(self, node: ProtocolNode) -> ProtocolNode:
+        self.nodes[node.id] = node
+        return node
+
+    async def get_node(self, node_id: UUID) -> ProtocolNode | None:
+        return self.nodes.get(node_id)
+
+    async def list_nodes(self) -> Sequence[ProtocolNode]:
+        return sorted(self.nodes.values(), key=lambda node: (node.proposed_at, node.id))
+
+    async def add_tick(self, entry: TapeEntry) -> TapeEntry:
+        if any(existing.instant.tick == entry.instant.tick for existing in self.tape):
+            raise ConflictError("That tick is already on the tape.")
+        self.tape.append(entry)
+        self.tape.sort(key=lambda item: item.instant.tick)
+        return entry
+
+    async def list_tape(self, *, after_tick: int, limit: int) -> Sequence[TapeEntry]:
+        items = [entry for entry in self.tape if entry.instant.tick > after_tick]
+        return items[:limit]
+
+
 class FakeUnitOfWork:
     """A unit of work that records how it was used.
 
@@ -91,8 +183,16 @@ class FakeUnitOfWork:
     designed to make visible.
     """
 
-    def __init__(self, repository: FakeEventRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: FakeEventRepository | None = None,
+        *,
+        glossary: FakeGlossaryRepository | None = None,
+        protocol: FakeProtocolRepository | None = None,
+    ) -> None:
         self.events = repository or FakeEventRepository()
+        self.glossary = glossary or FakeGlossaryRepository()
+        self.protocol = protocol or FakeProtocolRepository()
         self.committed = False
         self.rolled_back = False
         self.entered = 0
