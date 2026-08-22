@@ -28,9 +28,13 @@ with Safari's Add to Home Screen.
   That HTTPS origin is what lets Safari Add to Home Screen from an iPad
   that cannot reach a local process.
 - iPad apps are pages in ``src/m4d/ipad/static/``, registered in
-  ``apps.json``. The home screen icon opens the library. A new app is a
-  copied ``template.html`` plus one catalog entry. Native Swift remains
-  available later; it is not required to ship the next app.
+  ``apps.json``. The home screen icon opens INNER. The library stays at
+  ``index.html``. A new app is a copied ``template.html`` plus one catalog
+  entry. Native Swift remains available later; it is not required to ship
+  the next app.
+- Safari can also install a home-screen web clip from
+  ``/inner.mobileconfig``, signed by the same origin the iPad is already
+  looking at.
 - The console is a delivery surface. It calls the public HTTP API. It does
   not import domain or database code.
 

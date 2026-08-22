@@ -193,6 +193,14 @@ class TestHomeScreenProfile:
 
         assert response.status_code == 400
 
+    async def test_profile_rejects_a_script_start(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(
+            "/inner.mobileconfig",
+            params={"start": "javascript:alert(1)"},
+        )
+
+        assert response.status_code == 400
+
 
 class TestConsoleDoesNotStealTheApi:
     async def test_health_route_is_still_the_probe(self, client: httpx.AsyncClient) -> None:
