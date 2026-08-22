@@ -20,6 +20,9 @@ with Safari's Add to Home Screen.
 - `display: standalone` so it opens without Safari chrome.
 - A service worker caches the shell so the UI remains on the iPad when the
   network drops; `/v1`, `/healthz`, and `/readyz` are never cached.
+- IndexedDB on the device is the source of truth the operator sees. New
+  events are written there first and posted to the API when it answers.
+  The server is a replica, not a requirement for using the console.
 - The console is a delivery surface. It calls the public HTTP API. It does
   not import domain or database code.
 

@@ -1,11 +1,12 @@
-/* M4D iPad console — keep the shell on the device. */
-const CACHE = "m4d-ipad-v1";
+/* M4D iPad console — keep the shell and the log on the device. */
+const CACHE = "m4d-ipad-v2";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
   "/apple-touch-icon.png",
   "/ipad/app.css",
   "/ipad/app.js",
+  "/ipad/store.js",
   "/ipad/icons/icon-180.png",
   "/ipad/icons/icon-192.png",
   "/ipad/icons/icon-512.png",
@@ -52,14 +53,17 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match("/"))),
+    caches.match(request).then((cached) => {
+      const fetched = fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => cached || caches.match("/"));
+      return cached || fetched;
+    }),
   );
 });

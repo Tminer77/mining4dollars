@@ -156,6 +156,17 @@ button {
   line-height: 1.4;
 }
 
+.install-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1a1408;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
 .pane {
   min-width: 0;
   min-height: 0;
@@ -548,7 +559,8 @@ h2 {
 }
 
 @media (display-mode: standalone) {
-  .hint {
+  .hint,
+  .install-chip {
     display: none;
   }
 }

@@ -3,12 +3,14 @@
 
   const SOURCE = "ipad";
   const INSTALL_KEY = "m4d.ipad.installHint";
+  const store = window.M4DStore;
 
   const state = {
     items: [],
     cursor: null,
     selectedId: null,
     view: "events",
+    pending: 0,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -19,25 +21,33 @@
     loadMore: $("load-more"),
     detailEmpty: $("detail-empty"),
     detailCard: $("detail-card"),
-    eventsPane: $("events-pane"),
-    detailPane: $("detail-pane"),
     statusPane: $("status-pane"),
     statusBody: $("status-body"),
     linkPill: $("link-pill"),
+    keepPill: $("keep-pill"),
     sheet: $("sheet"),
     compose: $("compose"),
     composeError: $("compose-error"),
     composeSubmit: $("compose-submit"),
     install: $("install"),
+    installChip: $("install-chip"),
     offline: $("offline"),
     toast: $("toast"),
     filterSource: $("filter-source"),
     filterKind: $("filter-kind"),
     filterSeverity: $("filter-severity"),
+    lede: $("events-lede"),
   };
 
   function requestId() {
     return crypto.randomUUID();
+  }
+
+  function isStandalone() {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true
+    );
   }
 
   async function api(path, options = {}) {
@@ -66,28 +76,67 @@
   }
 
   function filters() {
-    const query = new URLSearchParams();
-    const source = els.filterSource.value.trim();
-    const kind = els.filterKind.value.trim();
-    const minSeverity = els.filterSeverity.value;
-    if (source) query.set("source", source);
-    if (kind) query.set("kind", kind);
-    if (minSeverity) query.set("min_severity", minSeverity);
-    query.set("limit", "30");
-    return query;
+    return {
+      source: els.filterSource.value.trim(),
+      kind: els.filterKind.value.trim(),
+      minSeverity: els.filterSeverity.value,
+    };
   }
 
-  async function loadEvents({ reset = false } = {}) {
-    const query = filters();
-    if (!reset && state.cursor) query.set("cursor", state.cursor);
-    const { body } = await api(`/v1/events?${query}`);
-    state.items = reset ? body.items : state.items.concat(body.items);
-    state.cursor = body.next_cursor;
-    if (reset) {
+  const SEVERITY_RANK = { debug: 10, info: 20, warning: 30, error: 40, critical: 50 };
+
+  function matches(event) {
+    const { source, kind, minSeverity } = filters();
+    if (source && event.source !== source) return false;
+    if (kind && event.kind !== kind) return false;
+    if (minSeverity && (SEVERITY_RANK[event.severity] || 0) < (SEVERITY_RANK[minSeverity] || 0)) {
+      return false;
+    }
+    return true;
+  }
+
+  function mergeById(rows) {
+    const map = new Map();
+    for (const event of rows) {
+      map.set(event.id, event);
+    }
+    return [...map.values()].sort((left, right) => {
+      if (left.occurred_at === right.occurred_at) {
+        return right.id < left.id ? 1 : -1;
+      }
+      return left.occurred_at < right.occurred_at ? 1 : -1;
+    });
+  }
+
+  async function refreshFromDevice() {
+    const local = await store.allEvents();
+    state.items = local.filter(matches);
+    state.pending = local.filter((event) => event.synced === false).length;
+    if (!state.items.some((event) => event.id === state.selectedId)) {
       state.selectedId = state.items[0] ? state.items[0].id : null;
     }
     renderList();
     renderDetail();
+    renderKeep();
+  }
+
+  async function loadEvents({ reset = false } = {}) {
+    await refreshFromDevice();
+    const query = new URLSearchParams();
+    const { source, kind, minSeverity } = filters();
+    if (source) query.set("source", source);
+    if (kind) query.set("kind", kind);
+    if (minSeverity) query.set("min_severity", minSeverity);
+    query.set("limit", "30");
+    if (!reset && state.cursor) query.set("cursor", state.cursor);
+    try {
+      const { body } = await api(`/v1/events?${query}`);
+      await store.rememberRemote(body.items);
+      state.cursor = body.next_cursor;
+    } catch {
+      if (reset) state.cursor = null;
+    }
+    await refreshFromDevice();
   }
 
   function severityClass(severity) {
@@ -107,11 +156,22 @@
     }).format(date);
   }
 
+  function renderKeep() {
+    const n = state.items.length;
+    const pending = state.pending;
+    els.keepPill.textContent =
+      pending > 0 ? `${pending} waiting to sync` : `${n} kept on this iPad`;
+    els.lede.textContent =
+      pending > 0
+        ? "On this iPad. Unsynced rows wait here until the API answers."
+        : "On this iPad. Newest first. The server is a copy when reachable.";
+  }
+
   function renderList() {
     els.loadMore.hidden = !state.cursor;
     if (!state.items.length) {
       els.list.innerHTML =
-        '<div class="empty"><h2>No events yet</h2><p>Record the first one from this iPad.</p></div>';
+        '<div class="empty"><h2>Nothing on this iPad yet</h2><p>Record one. It stays here even if the server is down.</p></div>';
       return;
     }
     els.list.replaceChildren(
@@ -128,8 +188,10 @@
           </span>
           <span class="when"></span>
         `;
+        const pending = event.synced === false ? " · on this iPad" : "";
         button.querySelector(".event-kind").textContent = event.kind;
-        button.querySelector(".event-meta").textContent = `${event.source} · ${event.severity}`;
+        button.querySelector(".event-meta").textContent =
+          `${event.source} · ${event.severity}${pending}`;
         button.querySelector(".when").textContent = when(event.occurred_at);
         button.addEventListener("click", () => {
           state.selectedId = event.id;
@@ -160,6 +222,7 @@
         <dt>Ingest lag</dt><dd class="lag"></dd>
         <dt>Id</dt><dd class="id"></dd>
         <dt>Idempotency</dt><dd class="idem"></dd>
+        <dt>This iPad</dt><dd class="kept"></dd>
       </dl>
       <pre class="payload"></pre>
     `;
@@ -171,6 +234,8 @@
     els.detailCard.querySelector(".lag").textContent = `${event.ingest_lag_ms} ms`;
     els.detailCard.querySelector(".id").textContent = event.id;
     els.detailCard.querySelector(".idem").textContent = event.idempotency_key || "—";
+    els.detailCard.querySelector(".kept").textContent =
+      event.synced === false ? "Kept locally, not on the server yet" : "Kept on this iPad";
     els.detailCard.querySelector(".payload").textContent = JSON.stringify(event.payload, null, 2);
   }
 
@@ -186,6 +251,15 @@
 
   async function refreshStatus() {
     const cards = [];
+    const local = await store.allEvents();
+    cards.push(
+      statusCard("This iPad", "The log lives on this device.", {
+        device_id: store.deviceId(),
+        standalone: isStandalone(),
+        kept: local.length,
+        waiting_to_sync: local.filter((event) => event.synced === false).length,
+      }),
+    );
     try {
       const live = await api("/healthz");
       cards.push(statusCard("Liveness", "Process is up.", live.body));
@@ -197,9 +271,11 @@
       cards.push(statusCard("Readiness", "Dependencies can serve traffic.", ready.body));
     } catch (error) {
       cards.push(
-        statusCard("Readiness", error.message, (error.problem && error.problem.status && error.problem) || {
-          status: "unreachable",
-        }),
+        statusCard(
+          "Readiness",
+          error.message,
+          (error.problem && error.problem.status && error.problem) || { status: "unreachable" },
+        ),
       );
     }
     els.statusBody.replaceChildren(...cards);
@@ -226,10 +302,35 @@
       const ok = ready.body.status === "healthy";
       els.linkPill.dataset.state = ok ? "ok" : "down";
       els.linkPill.textContent = ok ? "Ready" : "Not ready";
+      if (ok) await flush();
     } catch {
       els.linkPill.dataset.state = "down";
-      els.linkPill.textContent = "Unreachable";
+      els.linkPill.textContent = "On this iPad";
     }
+  }
+
+  async function flush() {
+    const waiting = await store.unsynced();
+    for (const event of waiting) {
+      try {
+        const result = await api("/v1/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source: event.source,
+            kind: event.kind,
+            severity: event.severity,
+            payload: event.payload,
+            occurred_at: event.occurred_at,
+            idempotency_key: event.idempotency_key,
+          }),
+        });
+        await store.replaceLocal(event.id, result.body);
+      } catch {
+        break;
+      }
+    }
+    await refreshFromDevice();
   }
 
   function openSheet() {
@@ -250,16 +351,17 @@
     }, 2400);
   }
 
-  function isStandalone() {
-    return (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      window.navigator.standalone === true
-    );
-  }
-
-  function maybeInstallHint() {
-    if (isStandalone()) return;
-    if (localStorage.getItem(INSTALL_KEY) === "done") return;
+  function renderInstall() {
+    const needsHomeScreen = !isStandalone();
+    els.installChip.hidden = !needsHomeScreen;
+    if (!needsHomeScreen) {
+      els.install.hidden = true;
+      return;
+    }
+    if (sessionStorage.getItem(INSTALL_KEY) === "session") {
+      els.install.hidden = true;
+      return;
+    }
     els.install.hidden = false;
   }
 
@@ -280,28 +382,42 @@
       return;
     }
 
-    const body = {
+    const local = store.localEvent({
       source: els.compose.source.value,
       kind: els.compose.kind.value,
       severity: els.compose.severity.value,
       payload,
       idempotency_key: requestId(),
-    };
+    });
 
     els.composeSubmit.disabled = true;
     try {
-      const result = await api("/v1/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      state.items = [result.body, ...state.items.filter((item) => item.id !== result.body.id)];
-      state.selectedId = result.body.id;
-      renderList();
-      renderDetail();
+      await store.putEvent(local);
+      state.selectedId = local.id;
       closeSheet();
-      showToast(result.status === 200 ? "Already recorded" : "Recorded");
       setView("events");
+      await refreshFromDevice();
+      showToast("Kept on this iPad");
+      try {
+        const result = await api("/v1/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source: local.source,
+            kind: local.kind,
+            severity: local.severity,
+            payload: local.payload,
+            occurred_at: local.occurred_at,
+            idempotency_key: local.idempotency_key,
+          }),
+        });
+        await store.replaceLocal(local.id, result.body);
+        state.selectedId = result.body.id;
+        await refreshFromDevice();
+        showToast(result.status === 200 ? "Already on the server" : "Kept here and on the server");
+      } catch {
+        /* The row is already on this iPad. */
+      }
     } catch (error) {
       els.composeError.textContent = error.message;
       els.composeError.hidden = false;
@@ -320,8 +436,12 @@
     $("load-more").addEventListener("click", () => loadEvents().catch(showError));
     $("status-refresh").addEventListener("click", () => refreshStatus());
     $("install-dismiss").addEventListener("click", () => {
-      localStorage.setItem(INSTALL_KEY, "done");
+      sessionStorage.setItem(INSTALL_KEY, "session");
       els.install.hidden = true;
+    });
+    $("install-chip").addEventListener("click", () => {
+      sessionStorage.removeItem(INSTALL_KEY);
+      els.install.hidden = false;
     });
     els.compose.addEventListener("submit", onCompose);
     els.sheet.addEventListener("click", (event) => {
@@ -336,6 +456,7 @@
     window.addEventListener("online", () => {
       els.offline.hidden = true;
       ping();
+      flush();
     });
     window.addEventListener("offline", () => {
       els.offline.hidden = false;
@@ -356,33 +477,43 @@
   async function boot() {
     bind();
     els.offline.hidden = navigator.onLine;
-    maybeInstallHint();
+    renderInstall();
     registerWorker();
+    await refreshFromDevice();
     await ping();
     try {
       await loadEvents({ reset: true });
-    } catch (error) {
-      els.list.innerHTML =
-        '<div class="empty"><h2>Cannot reach the log</h2><p></p></div>';
-      els.list.querySelector("p").textContent = error.message;
+    } catch {
+      /* Device copy is already on screen. */
     }
     if (!localStorage.getItem("m4d.ipad.booted")) {
       localStorage.setItem("m4d.ipad.booted", "1");
+      const opened = store.localEvent({
+        source: SOURCE,
+        kind: "console.opened",
+        severity: "info",
+        payload: { standalone: isStandalone(), device_id: store.deviceId() },
+        idempotency_key: `console-open-${store.deviceId()}`,
+      });
+      await store.putEvent(opened);
+      await refreshFromDevice();
       try {
-        await api("/v1/events", {
+        const result = await api("/v1/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            source: SOURCE,
-            kind: "console.opened",
-            severity: "info",
-            payload: { standalone: isStandalone() },
-            idempotency_key: `console-open-${new Date().toISOString().slice(0, 13)}`,
+            source: opened.source,
+            kind: opened.kind,
+            severity: opened.severity,
+            payload: opened.payload,
+            occurred_at: opened.occurred_at,
+            idempotency_key: opened.idempotency_key,
           }),
         });
-        await loadEvents({ reset: true });
+        await store.replaceLocal(opened.id, result.body);
+        await refreshFromDevice();
       } catch {
-        /* First-run breadcrumb is best-effort. */
+        /* First-run breadcrumb stays on this iPad. */
       }
     }
   }

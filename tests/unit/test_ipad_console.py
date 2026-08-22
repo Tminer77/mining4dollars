@@ -38,6 +38,8 @@ class TestConsoleShell:
         assert "apple-mobile-web-app-capable" in body
         assert 'rel="manifest"' in body
         assert "Add to Home Screen" in body
+        assert "this iPad" in body
+        assert "/ipad/store.js" in body
 
     async def test_manifest_is_standalone(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/manifest.webmanifest")
@@ -55,7 +57,8 @@ class TestConsoleShell:
         assert response.status_code == 200
         assert "javascript" in response.headers["content-type"]
         assert response.headers["service-worker-allowed"] == "/"
-        assert "m4d-ipad-v1" in response.text
+        assert "m4d-ipad-v2" in response.text
+        assert "/ipad/store.js" in response.text
 
     async def test_apple_touch_icon_is_a_png(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/apple-touch-icon.png")
@@ -67,11 +70,16 @@ class TestConsoleShell:
     async def test_assets_are_served_under_ipad(self, client: httpx.AsyncClient) -> None:
         css = await client.get("/ipad/app.css")
         js = await client.get("/ipad/app.js")
+        store = await client.get("/ipad/store.js")
 
         assert css.status_code == 200
         assert js.status_code == 200
+        assert store.status_code == 200
         assert "safe-area-inset" in css.text
         assert "serviceWorker" in js.text
+        assert "indexedDB" in store.text
+        assert "M4DStore" in store.text
+        assert "kept on this iPad" in js.text
 
 
 class TestConsoleDoesNotStealTheApi:

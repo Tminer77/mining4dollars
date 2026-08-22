@@ -42,8 +42,9 @@ The API is then on <http://localhost:8000>, with interactive documentation at
 `/docs` (served everywhere except staging and production).
 
 On an iPad, open that URL in Safari, tap **Share**, then **Add to Home Screen**.
-The console stays on the iPad as its own app: event log, health, and a sheet to
-record activity. It talks to the same `/v1/events` API as every other client.
+The console stays on the iPad as its own app. Events recorded there are stored
+on the device and still work with no network; they copy to `/v1/events` when
+the API is reachable.
 
 ```bash
 curl -X POST localhost:8000/v1/events \
