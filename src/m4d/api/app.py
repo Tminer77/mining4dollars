@@ -23,6 +23,7 @@ from m4d.api.routes import mining as mining_routes
 from m4d.config import Settings, get_settings
 from m4d.db.engine import Database
 from m4d.db.uow import SqlAlchemyUnitOfWork
+from m4d.ios.routes import mount_ios
 from m4d.observability.logging import setup_logging
 from m4d.services.clock import SystemClock
 from m4d.services.events import EventService
@@ -126,5 +127,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(mining_routes.workers_router)
     app.include_router(mining_routes.quotes_router)
     app.include_router(mining_routes.fleet_router)
+    mount_ios(app)
 
     return app

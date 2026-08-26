@@ -22,7 +22,8 @@ venv/
 htmlcov/
 coverage.xml
 
-# Editors / OS
-.idea/
+# Generated iOS home-screen icons (written when the app starts)
+src/m4d/ios/static/icons/
+
 .vscode/
 .DS_Store
