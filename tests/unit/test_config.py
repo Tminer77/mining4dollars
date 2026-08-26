@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
@@ -34,6 +36,23 @@ class TestCorsOrigins:
 
     def test_defaults_to_empty(self) -> None:
         assert Settings(database_url=UNIT_TEST_DSN).cors_origins == ()
+
+    def test_empty_env_string_is_no_origins(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Copying .env.example leaves M4D_CORS_ORIGINS= blank; that must boot."""
+        from m4d.config import get_settings
+
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            f"M4D_DATABASE_URL={UNIT_TEST_DSN}\nM4D_CORS_ORIGINS=\n", encoding="utf-8"
+        )
+        monkeypatch.chdir(tmp_path)
+        get_settings.cache_clear()
+        try:
+            assert get_settings().cors_origins == ()
+        finally:
+            get_settings.cache_clear()
 
 
 class TestEnvironment:
