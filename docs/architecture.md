@@ -168,10 +168,12 @@ suite still runs offline.
 
 ## Extending it
 
-Adding a capability follows the path the event slice already demonstrates:
-domain entity and port, then table, repository, and migration, then service,
-then wire schemas and routes, with tests at each level. The README has the
-step-by-step version.
+The mining slice is the product; the event log is the activity record it
+writes into. Adding another capability follows the same path: domain entity
+and port, then table, repository, and migration, then service, then wire
+schemas and routes, with tests at each level. See [`mining.md`](mining.md)
+for the dollars arithmetic and [ADR-0008](adr/0008-profit-ranking.md) for why
+it lives in the domain.
 
 Two things to keep true:
 

@@ -1,0 +1,75 @@
+:root {
+  color-scheme: dark;
+  --bg: #12100c;
+  --panel: #1c1812;
+  --gold: #d4af37;
+  --ink: #f4e7c3;
+  --mute: #a8946a;
+  --ok: #7dcea0;
+  --bad: #e07a5f;
+  --pad: max(16px, env(safe-area-inset-left));
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-rounded, -apple-system, system-ui, sans-serif;
+}
+body {
+  padding: calc(12px + env(safe-area-inset-top)) var(--pad) calc(28px + env(safe-area-inset-bottom));
+  max-width: 980px;
+  margin: 0 auto;
+}
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.mark {
+  width: 48px; height: 48px; border-radius: 12px;
+  background: var(--gold); color: var(--bg);
+  display: grid; place-items: center;
+  font-weight: 800; font-size: 26px;
+}
+h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+.sub { margin: 0; color: var(--mute); font-size: 13px; }
+.chip {
+  margin-left: auto;
+  background: var(--gold); color: var(--bg);
+  text-decoration: none; font-weight: 700;
+  padding: 10px 14px; border-radius: 999px; font-size: 14px;
+  min-height: 44px; display: grid; place-items: center;
+}
+.hero {
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 22px;
+  margin-bottom: 24px;
+}
+.label { margin: 0; color: var(--mute); text-transform: uppercase; letter-spacing: .12em; font-size: 12px; }
+.dollars { margin: 6px 0 0; font-size: clamp(40px, 8vw, 72px); font-weight: 700; color: var(--gold); }
+.meta { margin: 8px 0 0; color: var(--mute); }
+h2 { font-size: 16px; margin: 0 0 10px; color: var(--mute); font-weight: 600; }
+.cards { display: grid; gap: 10px; margin-bottom: 18px; }
+.card {
+  background: var(--panel); border-radius: 16px; padding: 14px 16px;
+  border: 1px solid transparent; text-align: left; color: inherit;
+  width: 100%; font: inherit; min-height: 44px;
+}
+.card[aria-pressed="true"] { border-color: var(--gold); }
+.card strong { display: block; font-size: 17px; }
+.card span { color: var(--mute); font-size: 13px; }
+.ok { color: var(--ok); }
+.bad { color: var(--bad); }
+.hint { color: var(--mute); margin-top: 0; }
+button#assign {
+  width: 100%; min-height: 48px; border: 0; border-radius: 14px;
+  background: var(--gold); color: var(--bg); font-weight: 700; font-size: 17px;
+}
+button#assign:disabled { opacity: .4; }
+.install { margin-top: 28px; color: var(--mute); }
+.install a { color: var(--gold); }
+ol { padding-left: 1.2em; }
+code { color: var(--ink); }

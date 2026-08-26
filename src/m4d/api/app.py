@@ -19,20 +19,24 @@ from m4d.api.errors import install_error_handlers
 from m4d.api.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
 from m4d.api.routes import events as events_routes
 from m4d.api.routes import health as health_routes
+from m4d.api.routes import mining as mining_routes
 from m4d.config import Settings, get_settings
 from m4d.db.engine import Database
 from m4d.db.uow import SqlAlchemyUnitOfWork
+from m4d.ios.routes import mount_ios
 from m4d.observability.logging import setup_logging
 from m4d.services.clock import SystemClock
 from m4d.services.events import EventService
 from m4d.services.health import HealthService
+from m4d.services.mining import MiningService
 
 __all__ = ["create_app"]
 
 logger = logging.getLogger(__name__)
 
 DESCRIPTION = """
-Foundation services for the mining4dollars platform.
+mining4dollars: enrol hardware, ingest market quotes, and assign each rig the
+coin that makes the most dollars after electricity.
 
 Every error is returned as an RFC 9457 problem document, and every response
 carries an `X-Request-ID` header that correlates it with server logs.
@@ -49,13 +53,16 @@ def _build_lifespan(
         # Constructed here rather than at import time so that importing the
         # module never opens a socket, and so tests can build an app per case.
         database = Database(settings)
+        clock = SystemClock()
+
+        def uow_factory() -> SqlAlchemyUnitOfWork:
+            return SqlAlchemyUnitOfWork(database.session_factory)
 
         app.state.settings = settings
         app.state.database = database
-        app.state.event_service = EventService(
-            uow_factory=lambda: SqlAlchemyUnitOfWork(database.session_factory),
-            clock=SystemClock(),
-        )
+        app.state.clock = clock
+        app.state.event_service = EventService(uow_factory=uow_factory, clock=clock)
+        app.state.mining_service = MiningService(uow_factory=uow_factory, clock=clock)
         app.state.health_service = HealthService(database)
 
         logger.info(
@@ -93,10 +100,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None if settings.environment.is_production_like else "/openapi.json",
     )
 
-    # Settings are also placed here eagerly: dependencies that read app.state
-    # must work before lifespan runs, as they do when a test builds the app
-    # without entering its lifespan.
+    # Settings (and the clock) are placed here eagerly: dependencies that read
+    # app.state must work before lifespan runs, as they do when a test builds
+    # the app without entering its lifespan.
     app.state.settings = settings
+    app.state.clock = SystemClock()
 
     app.add_middleware(RequestContextMiddleware)
 
@@ -114,5 +122,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_routes.router)
     app.include_router(events_routes.router)
+    app.include_router(mining_routes.coins_router)
+    app.include_router(mining_routes.pools_router)
+    app.include_router(mining_routes.workers_router)
+    app.include_router(mining_routes.quotes_router)
+    app.include_router(mining_routes.fleet_router)
+    mount_ios(app)
 
     return app

@@ -17,7 +17,7 @@ from functools import lru_cache
 from typing import Annotated, Literal
 
 from pydantic import Field, PostgresDsn, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 __all__ = ["Environment", "Settings", "get_settings"]
 
@@ -66,7 +66,9 @@ class Settings(BaseSettings):
     # ---- HTTP --------------------------------------------------------------
     api_host: str = "0.0.0.0"  # noqa: S104 - binding all interfaces is intended in a container
     api_port: Annotated[int, Field(ge=1, le=65535)] = 8000
-    cors_origins: tuple[str, ...] = ()
+    # NoDecode: an empty M4D_CORS_ORIGINS= in .env is a string, not JSON. Without
+    # this, copying .env.example and starting the server crashes at Settings().
+    cors_origins: Annotated[tuple[str, ...], NoDecode] = ()
 
     # ---- Database ----------------------------------------------------------
     database_url: PostgresDsn = PostgresDsn("postgresql+asyncpg://postgres@127.0.0.1:5432/m4d")

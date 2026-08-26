@@ -7,11 +7,12 @@ configuration, structured logging, request correlation, a transactional
 persistence layer, a uniform error contract, migrations, and a test suite that
 runs against a real PostgreSQL database.
 
-It currently ships one working vertical slice — an append-only **system event
-log** — that exercises every layer end to end. The slice is real, not a
-placeholder: an activity record is something every subsystem built here will
-need. See [Adding a feature](#adding-a-feature) for the path a new capability
-follows through the same layers.
+The product is **mining for dollars**. Enrol a rig, ingest a market snapshot,
+and the platform assigns the coin that makes the most USD after electricity.
+The append-only **system event log** is the activity record every state change
+writes into. See [`docs/mining.md`](docs/mining.md) for the arithmetic and
+[Adding a feature](#adding-a-feature) for the path a new capability follows
+through the same layers.
 
 - **Language:** Python 3.12
 - **API:** FastAPI, async end to end
@@ -41,9 +42,17 @@ The API is then on <http://localhost:8000>, with interactive documentation at
 `/docs` (served everywhere except staging and production).
 
 ```bash
-curl -X POST localhost:8000/v1/events \
+# Enrol a rig, list a coin, ingest a WhatToMine-shaped quote, assign dollars.
+curl -X POST localhost:8000/v1/workers \
   -H 'Content-Type: application/json' \
-  -d '{"source":"demo","kind":"service.started","severity":"info"}'
+  -d '{"name":"rig-1","power_watts":"1000","electricity_usd_per_kwh":"0.10"}'
+
+curl -X POST localhost:8000/v1/coins \
+  -H 'Content-Type: application/json' \
+  -d '{"ticker":"ETHW","name":"EthereumPoW","algorithm":"ethash"}'
+
+# Then POST /v1/workers/{id}/capabilities, POST /v1/quotes,
+# POST /v1/workers/{id}/assign, GET /v1/fleet.
 
 curl localhost:8000/v1/events?limit=10
 ```
@@ -198,6 +207,6 @@ The event slice is the worked example; a new capability follows the same path.
 
 ## Status
 
-The foundation is complete and verified. The domain slice is deliberately
-generic: the platform's specific entities are not yet modelled, and adding them
-is the next step.
+The foundation and the mining-for-dollars slice are in place. Ranking,
+assignment, and the fleet dollars snapshot are real use cases with tests;
+live market adapters and miner-process control are not in this repository.

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Blueprint">
+  <meta name="theme-color" content="#12100c">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/ios/blueprint.css">
+  <title>Blueprint</title>
+</head>
+<body>
+  <header class="top">
+    <div class="mark">B</div>
+    <div>
+      <h1>Blueprint</h1>
+      <p class="sub">mining for dollars</p>
+    </div>
+    <a class="chip" href="/ios/install">Add to iPad</a>
+  </header>
+
+  <section class="hero" id="hero">
+    <p class="label">Estimated profit / day</p>
+    <p class="dollars" id="profit">—</p>
+    <p class="meta" id="meta">Loading fleet…</p>
+  </section>
+
+  <section>
+    <h2>Workers</h2>
+    <div id="workers" class="cards"></div>
+  </section>
+
+  <section>
+    <h2>Assign dollars</h2>
+    <p class="hint">Pick a rig. Blueprint ranks coins after electricity and assigns the winner.</p>
+    <div id="rank" class="cards"></div>
+    <button id="assign" type="button" disabled>Assign most profitable</button>
+  </section>
+
+  <section class="install">
+    <h2>On this iPad</h2>
+    <ol>
+      <li>Tap <strong>Add to iPad</strong> to save <code>Blueprint.mobileconfig</code> to Files, then open it to put the icon on the home screen.</li>
+      <li>Or tap Share → <strong>Add to Home Screen</strong>.</li>
+      <li>To keep a copy in Files: <a href="/ios/download">Download Blueprint.html</a>.</li>
+    </ol>
+  </section>
+
+  <script src="/ios/blueprint.js"></script>
+</body>
+</html>

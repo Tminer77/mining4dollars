@@ -1,7 +1,7 @@
 [project]
 name = "mining4dollars"
 version = "0.1.0"
-description = "Foundation services for the mining4dollars platform"
+description = "Mine the coin that makes the most dollars after electricity"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Proprietary" }
