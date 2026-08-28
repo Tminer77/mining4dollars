@@ -87,6 +87,7 @@ the alternatives rejected are recorded in [`docs/adr/`](docs/adr/).
 | `migrations/` | Alembic revisions |
 | `tests/unit/` | No I/O; fast |
 | `tests/integration/` | Real PostgreSQL |
+| `tools/repair/` | Developer tooling: the automated repair loop |
 
 ---
 
@@ -179,6 +180,32 @@ make test
 
 Integration tests are skipped, not failed, when no database is reachable, so
 `make test` still works offline.
+
+### Automated repair
+
+`make repair` drives `make check` to green by asking Claude for whole-file
+patches and re-running the gate after each one. It is developer tooling under
+`tools/repair/`; nothing in the service imports it.
+
+```bash
+uv pip install --python .venv/bin/python -e ".[repair]"
+export ANTHROPIC_API_KEY=...        # or: ant auth login
+
+make repair a="--dry-run"           # one turn, prints the patch, writes nothing
+make repair                         # up to 15 attempts against `make check`
+make repair a='--verify "make lint" --max-attempts 5'
+```
+
+The loop's termination condition is the gate's exit status, never the model's
+opinion of its own work: a tree that already passes is left untouched, every
+patch is applied atomically and confined to the repository, and a reply cut off
+at the token limit is discarded rather than written half-formed. Each run leaves
+its replies and gate logs under `.repair/`, which is gitignored.
+
+It rewrites source files in place. Run it on a clean tree so `git diff` is the
+review, and read the diff — a gate is a lower bound on quality, not a proof. The
+reasoning behind the design is in
+[ADR 0008](docs/adr/0008-verified-automated-repair.md).
 
 ### Adding a feature
 

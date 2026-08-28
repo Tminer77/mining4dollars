@@ -16,6 +16,7 @@ A decision that had no plausible alternative does not need a record.
 | [0005](0005-idempotent-ingest.md) | Idempotent ingest backed by a partial unique index | Accepted |
 | [0006](0006-liveness-vs-readiness.md) | Separate liveness and readiness probes | Accepted |
 | [0007](0007-real-postgres-in-tests.md) | Integration tests run on real PostgreSQL | Accepted |
+| [0008](0008-verified-automated-repair.md) | The automated repair loop is closed by the verification gate | Accepted |
 
 ## Writing one
 
