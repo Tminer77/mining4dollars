@@ -1,0 +1,106 @@
+# Test, bundle, sign and publish an Android or Wear OS build to Google Play.
+#
+# Copied into an app repository by `python -m tools.factory init --with-workflows`.
+# Manual dispatch only: a release should be a decision, not a side effect of a push.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   ANDROID_KEYSTORE_BASE64    base64 of your upload keystore: base64 -i upload.jks
+#   ANDROID_KEYSTORE_PASSWORD  the keystore password
+#   ANDROID_KEY_ALIAS          the upload key's alias
+#   ANDROID_KEY_PASSWORD       that key's password
+#   PLAY_SERVICE_ACCOUNT_JSON  service-account JSON with Play Console release access
+#
+# Losing the upload keystore means losing the ability to update the app unless
+# Play App Signing is enabled. Keep a copy somewhere that is not this repository.
+
+name: Release (Android)
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Play track to publish to"
+        required: false
+        default: internal
+        type: choice
+        options: [internal, alpha, beta, production]
+      previous_build:
+        description: "Highest versionCode already uploaded (blocks a repeat)"
+        required: false
+        type: string
+
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Bundle and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Written outside the workspace so a stray `git add -A` in a later step
+      # cannot commit the keystore.
+      - name: Install the upload keystore
+        run: |
+          keystore="$RUNNER_TEMP/upload.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Preflight
+        run: |
+          python -m tools.factory preflight --platform android \
+            ${{ inputs.previous_build && format('--previous-build {0}', inputs.previous_build) || '' }}
+
+      - name: Show the plan
+        run: python -m tools.factory plan --platform android
+
+      - name: Test and bundle
+        run: |
+          python -m tools.factory run --platform android \
+            ${{ inputs.previous_build && format('--previous-build {0}', inputs.previous_build) || '' }}
+
+      - name: Locate the bundle
+        id: bundle
+        run: echo "path=$(find . -name '*.aab' -path '*release*' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Write the Play credentials
+        run: printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/play.json"
+
+      - name: Publish
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ runner.temp }}/play.json
+          packageName: ${{ vars.ANDROID_PACKAGE_NAME }}
+          releaseFiles: ${{ steps.bundle.outputs.path }}
+          track: ${{ inputs.track || 'internal' }}
+          status: completed
+
+      - name: Keep the bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-bundle
+          path: "**/*.aab"
+          if-no-files-found: warn
+          retention-days: 14

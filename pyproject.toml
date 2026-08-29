@@ -17,6 +17,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The automated repair loop under tools/repair. Kept out of the runtime
+# dependencies: it is developer tooling that never runs inside the service.
+repair = [
+    "anthropic>=1.2,<2",
+]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
@@ -24,6 +29,11 @@ dev = [
     "httpx>=0.28",
     "ruff>=0.8",
     "mypy>=1.13",
+    # Only the workflow-template tests need it: a malformed template is
+    # otherwise discovered by GitHub, in someone else's repository.
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
+    "mining4dollars[repair]",
 ]
 
 [project.scripts]
@@ -42,7 +52,7 @@ packages = ["src/m4d"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "tools"]
 
 [tool.ruff.lint]
 select = [
@@ -70,12 +80,15 @@ ignore = [
 "tests/**" = ["S101", "S105", "S106", "ANN"]
 "migrations/**" = ["ANN", "S101"]
 "src/m4d/cli.py" = ["T20"]
+# The repair loop's CLI is the one place in tools/ that talks to a terminal.
+"tools/repair/cli.py" = ["T20"]
+"tools/factory/cli.py" = ["T20"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
-known-first-party = ["m4d"]
+known-first-party = ["m4d", "tools"]
 
 # ---------------------------------------------------------------------------
 # Types
@@ -86,7 +99,7 @@ strict = true
 warn_unreachable = true
 disallow_any_generics = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
@@ -110,7 +123,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/m4d"]
+source = ["src/m4d", "tools"]
 branch = true
 
 [tool.coverage.report]

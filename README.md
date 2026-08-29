@@ -87,6 +87,8 @@ the alternatives rejected are recorded in [`docs/adr/`](docs/adr/).
 | `migrations/` | Alembic revisions |
 | `tests/unit/` | No I/O; fast |
 | `tests/integration/` | Real PostgreSQL |
+| `tools/repair/` | Developer tooling: the automated repair loop |
+| `tools/factory/` | Developer tooling: the App Store and Play release factories |
 
 ---
 
@@ -179,6 +181,61 @@ make test
 
 Integration tests are skipped, not failed, when no database is reachable, so
 `make test` still works offline.
+
+### Automated repair
+
+`make repair` drives `make check` to green by asking Claude for whole-file
+patches and re-running the gate after each one. It is developer tooling under
+`tools/repair/`; nothing in the service imports it.
+
+```bash
+uv pip install --python .venv/bin/python -e ".[repair]"
+export ANTHROPIC_API_KEY=...        # or: ant auth login
+
+make repair a="--dry-run"           # one turn, prints the patch, writes nothing
+make repair                         # up to 15 attempts against `make check`
+make repair a='--verify "make lint" --max-attempts 5'
+```
+
+The loop's termination condition is the gate's exit status, never the model's
+opinion of its own work: a tree that already passes is left untouched, every
+patch is applied atomically and confined to the repository, and a reply cut off
+at the token limit is discarded rather than written half-formed. Each run leaves
+its replies and gate logs under `.repair/`, which is gitignored.
+
+It rewrites source files in place. Run it on a clean tree so `git diff` is the
+review, and read the diff — a gate is a lower bound on quality, not a proof. The
+reasoning behind the design is in
+[ADR 0008](docs/adr/0008-verified-automated-repair.md).
+
+### App factories
+
+`tools/factory/` ships an app to the App Store or Google Play. It is driven by a
+`factory.toml` in the app's repository rather than by arguments, so a release is
+reproducible from the repository instead of from someone's shell history. It is
+project-agnostic: point it at any Xcode or Gradle project.
+
+```bash
+python -m tools.factory init --with-workflows   # spec + release workflows
+python -m tools.factory preflight               # can this ship?
+python -m tools.factory plan --platform apple   # exactly what would run
+python -m tools.factory run  --platform apple   # do it (needs the toolchain)
+```
+
+`preflight` is the part that earns its keep. Every failure it can catch — an
+unset secret, a build number already uploaded, a missing project, a
+non-executable `gradlew` — otherwise surfaces half an hour into a runner's
+archive, and every result carries the fix rather than pointing at documentation:
+
+```
+  [FAIL] build number: Build number 57 is not greater than the last uploaded build (99).
+         -> Left unresolved, this fails at upload — after the build.
+  [SKIP] toolchain: xcodebuild cannot be checked on linux
+         -> The archive step needs a macOS runner. This check runs there.
+```
+
+A check that cannot run here reports `SKIP`, never `PASS`. The reasoning is in
+[ADR 0009](docs/adr/0009-declarative-release-factories.md).
 
 ### Adding a feature
 

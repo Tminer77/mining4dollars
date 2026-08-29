@@ -22,6 +22,10 @@ venv/
 htmlcov/
 coverage.xml
 
+# Automated repair runs: model replies and gate logs, kept for inspection
+# after a run rather than for the repository's history.
+.repair/
+
 # Editors / OS
 .idea/
 .vscode/
