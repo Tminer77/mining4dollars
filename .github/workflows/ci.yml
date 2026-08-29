@@ -137,3 +137,37 @@ jobs:
 
       - name: Upgrade again
         run: alembic upgrade head
+
+  linkchat:
+    name: LinkChat (Node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: linkchat
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # LinkChat runs TypeScript directly, so there is no build step; 22.6+
+          # is the floor for native type stripping.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: linkchat/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # These open real sockets and run a real SMTP server on loopback, so
+      # they are integration tests despite needing no services.
+      - name: Tests
+        run: npm test
+
+      # The end-to-end scenario the prototype is judged by. It verifies its
+      # own claims and exits non-zero if any step does not actually happen.
+      - name: End-to-end demo
+        run: npm run demo

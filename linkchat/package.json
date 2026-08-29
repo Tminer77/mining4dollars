@@ -1,0 +1,39 @@
+{
+  "name": "linkchat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A shareable link is the conversation. P2P first, SMTP as store-and-forward fallback.",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "bin": {
+    "linkchat": "./src/app/cli.ts"
+  },
+  "scripts": {
+    "start": "node src/app/cli.ts",
+    "dev": "node devtools/dev-cluster.ts",
+    "dev:alice": "node src/app/cli.ts start --profile alice",
+    "dev:bob": "node src/app/cli.ts start --profile bob",
+    "dev:carol": "node src/app/cli.ts start --profile carol",
+    "dev:mta": "node devtools/dev-mta.ts",
+    "demo": "node devtools/demo.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-concurrency=1 tests/*.test.ts",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "mailparser": "^3.7.4",
+    "nodemailer": "^7.0.9",
+    "smtp-server": "^3.16.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^22.19.0",
+    "@types/nodemailer": "^7.0.4",
+    "@types/smtp-server": "^3.5.13",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3"
+  }
+}
