@@ -196,6 +196,22 @@ The event slice is the worked example; a new capability follows the same path.
 
 ---
 
+## LinkChat (experimental)
+
+`linkchat/` holds a self-contained experiment that is unrelated to the service
+layers above: a prototype in which **a shareable link is the conversation**,
+with peer-to-peer delivery when a direct connection exists and SMTP
+store-and-forward when it does not. It is TypeScript on Node 22, runs with a
+single command, and has its own
+[README](linkchat/README.md) and
+[protocol specification](linkchat/docs/LINKCHAT_PROTOCOL.md).
+
+```bash
+cd linkchat && npm install && npm run demo
+```
+
+---
+
 ## Status
 
 The foundation is complete and verified. The domain slice is deliberately

@@ -1,0 +1,4 @@
+node_modules/
+.linkchat/
+*.log
+.env
