@@ -88,6 +88,7 @@ the alternatives rejected are recorded in [`docs/adr/`](docs/adr/).
 | `tests/unit/` | No I/O; fast |
 | `tests/integration/` | Real PostgreSQL |
 | `tools/repair/` | Developer tooling: the automated repair loop |
+| `tools/factory/` | Developer tooling: the App Store and Play release factories |
 
 ---
 
@@ -206,6 +207,35 @@ It rewrites source files in place. Run it on a clean tree so `git diff` is the
 review, and read the diff — a gate is a lower bound on quality, not a proof. The
 reasoning behind the design is in
 [ADR 0008](docs/adr/0008-verified-automated-repair.md).
+
+### App factories
+
+`tools/factory/` ships an app to the App Store or Google Play. It is driven by a
+`factory.toml` in the app's repository rather than by arguments, so a release is
+reproducible from the repository instead of from someone's shell history. It is
+project-agnostic: point it at any Xcode or Gradle project.
+
+```bash
+python -m tools.factory init --with-workflows   # spec + release workflows
+python -m tools.factory preflight               # can this ship?
+python -m tools.factory plan --platform apple   # exactly what would run
+python -m tools.factory run  --platform apple   # do it (needs the toolchain)
+```
+
+`preflight` is the part that earns its keep. Every failure it can catch — an
+unset secret, a build number already uploaded, a missing project, a
+non-executable `gradlew` — otherwise surfaces half an hour into a runner's
+archive, and every result carries the fix rather than pointing at documentation:
+
+```
+  [FAIL] build number: Build number 57 is not greater than the last uploaded build (99).
+         -> Left unresolved, this fails at upload — after the build.
+  [SKIP] toolchain: xcodebuild cannot be checked on linux
+         -> The archive step needs a macOS runner. This check runs there.
+```
+
+A check that cannot run here reports `SKIP`, never `PASS`. The reasoning is in
+[ADR 0009](docs/adr/0009-declarative-release-factories.md).
 
 ### Adding a feature
 

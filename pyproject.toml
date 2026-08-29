@@ -29,6 +29,10 @@ dev = [
     "httpx>=0.28",
     "ruff>=0.8",
     "mypy>=1.13",
+    # Only the workflow-template tests need it: a malformed template is
+    # otherwise discovered by GitHub, in someone else's repository.
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
     "mining4dollars[repair]",
 ]
 
@@ -78,6 +82,7 @@ ignore = [
 "src/m4d/cli.py" = ["T20"]
 # The repair loop's CLI is the one place in tools/ that talks to a terminal.
 "tools/repair/cli.py" = ["T20"]
+"tools/factory/cli.py" = ["T20"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"

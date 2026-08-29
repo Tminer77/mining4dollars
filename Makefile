@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install fmt lint types test test-unit test-integration check migrate downgrade revision run repair clean
+.PHONY: help install fmt lint types test test-unit test-integration check migrate downgrade revision run repair ship clean
 
 PYTHON  := .venv/bin/python
 VENVBIN := .venv/bin
@@ -56,6 +56,11 @@ run: ## Run the API with reload
 # files in place: run it on a clean working tree so `git diff` shows the patch.
 repair: ## Drive `make check` to green with Claude: make repair [a="--dry-run"]
 	$(PYTHON) -m tools.repair $(a)
+
+# Reads factory.toml. `preflight` and `plan` are safe anywhere; `run` needs the
+# platform toolchain and is normally the CI runner's job, not a laptop's.
+ship: ## Drive an app to a store: make ship a="preflight" | a="plan --platform apple"
+	$(PYTHON) -m tools.factory $(or $(a),preflight)
 
 clean: ## Remove caches and build artefacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage coverage.xml dist build

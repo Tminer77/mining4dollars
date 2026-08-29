@@ -1,0 +1,83 @@
+# Archive, sign and upload an iOS or watchOS build to TestFlight.
+#
+# Copied into an app repository by `python -m tools.factory init --with-workflows`.
+# Manual dispatch only: a release should be a decision, not a side effect of a push.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   APP_STORE_CONNECT_ISSUER_ID   UUID from App Store Connect -> Integrations
+#   APP_STORE_CONNECT_KEY_ID      the key's ID
+#   APP_STORE_CONNECT_PRIVATE_KEY the contents of AuthKey_<KeyID>.p8, pasted whole
+#
+# Signing certificates are not stored here: -allowProvisioningUpdates with the
+# App Store Connect key lets Xcode issue what it needs for this job and throw it
+# away afterwards, which is one fewer long-lived credential in the repository.
+
+name: Release (iOS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      previous_build:
+        description: "Highest build number already uploaded (blocks a repeat)"
+        required: false
+        type: string
+
+concurrency:
+  group: release-ios
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Archive and upload
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # altool looks for the key here by id, so the path is a convention, not a
+      # choice. The file lives only for this job.
+      - name: Install the App Store Connect key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          key_path=~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$key_path"
+          chmod 600 "$key_path"
+          echo "APP_STORE_CONNECT_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      # Everything knowable before the archive: credentials, build number,
+      # project paths. Thirty seconds here or thirty minutes on a rejection.
+      - name: Preflight
+        run: |
+          python -m tools.factory preflight --platform apple \
+            ${{ inputs.previous_build && format('--previous-build {0}', inputs.previous_build) || '' }}
+
+      - name: Show the plan
+        run: python -m tools.factory plan --platform apple
+
+      - name: Archive, export and upload
+        run: |
+          python -m tools.factory run --platform apple \
+            ${{ inputs.previous_build && format('--previous-build {0}', inputs.previous_build) || '' }}
+
+      # Kept whether or not the upload succeeded: the archive is what you need
+      # to diagnose a rejection, and it is gone with the runner otherwise.
+      - name: Keep the artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: |
+            build/factory/export/
+            build/factory/*.xcarchive/Info.plist
+          if-no-files-found: warn
+          retention-days: 14
