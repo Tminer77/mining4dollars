@@ -35,6 +35,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Aurelia")
 	float GetSpeedKmh() const;
 
+	void CaptureSpawnPoint();
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Aurelia")
 	TObjectPtr<UBoxComponent> Collision;
@@ -69,6 +71,7 @@ private:
 	float BrakeInput = 0.f;
 	bool bHandbrake = false;
 	float SpeedCms = 0.f;
+	bool bSpawnCaptured = false;
 	FVector SpawnLocation = FVector::ZeroVector;
 	FRotator SpawnRotation = FRotator::ZeroRotator;
 };

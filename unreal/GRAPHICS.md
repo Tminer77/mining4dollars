@@ -11,4 +11,4 @@
 
 City Sample is Epic’s dense Nanite city. It is the closest public stand-in for a GTA-6-scale street. It is **not** Vice City, Leonida, or any Rockstar map.
 
-This repo’s coding source is `unreal/AureliaDrive/` (C++, Unreal Engine 5.5). Renderer defaults are already on Lumen, Nanite, and virtual shadow maps. Open that project in the Linux Unreal Editor. Pull City Sample from Epic when you want city scale. Do not import GTA 6 archives.
+This repo’s coding source is `unreal/AureliaDrive/` (C++, Unreal Engine 5.5). On Play it spawns an original dusk coastal grid, race gates, and a street car, with Lumen / Nanite / virtual shadows already on. Open that project in the Linux Unreal Editor. Pull City Sample from Epic when you want scanned-city density. Do not import GTA 6 archives.

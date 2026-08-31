@@ -46,10 +46,9 @@ void AAureliaVehiclePawn::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (SpawnLocation.IsNearlyZero())
+	if (!bSpawnCaptured)
 	{
-		SpawnLocation = GetActorLocation();
-		SpawnRotation = GetActorRotation();
+		CaptureSpawnPoint();
 	}
 
 	const float TargetAccel = Acceleration * ThrottleInput - BrakeDecel * BrakeInput;
@@ -104,6 +103,13 @@ void AAureliaVehiclePawn::ResetToSpawn()
 {
 	SpeedCms = 0.f;
 	SetActorLocationAndRotation(SpawnLocation, SpawnRotation, false, nullptr, ETeleportType::ResetPhysics);
+}
+
+void AAureliaVehiclePawn::CaptureSpawnPoint()
+{
+	SpawnLocation = GetActorLocation();
+	SpawnRotation = GetActorRotation();
+	bSpawnCaptured = true;
 }
 
 float AAureliaVehiclePawn::GetSpeedKmh() const
