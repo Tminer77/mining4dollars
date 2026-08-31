@@ -12,16 +12,29 @@ mkdir -p "$DEST"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/download_oss_racing_game.sh [hexgl|stuntrally|all]
+Usage: scripts/download_oss_racing_game.sh [ue|hexgl|stuntrally|all]
 
-  hexgl       HexGL (MIT, HTML5, ~15 MB) — default
+  ue          UETrafficGame (MIT, Unreal Engine 5, Nanite/Lumen/Chaos) — default
+  hexgl       HexGL (MIT, HTML5, ~15 MB)
   stuntrally  Stunt Rally 3 source (GPL-3.0, ~1.5 GB git checkout)
-  all         Both of the above
+  all         Every target above
 
-Games land in third_party/racing/ and are gitignored.
-Stunt Rally 3 is the most realistic *complete* open-source racer.
-Nothing here is GTA 6, and nothing here uses Rockstar assets.
+The coding source in this repo is unreal/AureliaDrive/ (UE 5.5 C++).
+This script only fetches extra legal projects. Nothing here is GTA 6.
 EOF
+}
+
+clone_ue() {
+  local dir="$DEST/UETrafficGame"
+  if [ -d "$dir/.git" ]; then
+    echo "UETrafficGame already present at $dir"
+    return
+  fi
+  echo "Cloning UETrafficGame (MIT, Unreal Engine 5, Nanite/Lumen/Chaos)…"
+  git clone --depth 1 https://github.com/ScrappyCocco/UETrafficGame.git "$dir"
+  echo "UETrafficGame ready: $dir"
+  echo "Open TrafficGame/TrafficGame.uproject in Unreal Engine 5.1+"
+  echo "This is a vehicle playground, not GTA 6. City-scale visuals: Epic City Sample."
 }
 
 clone_hexgl() {
@@ -49,10 +62,13 @@ clone_stuntrally() {
   echo "Build docs: $dir/docs/Install.md"
 }
 
-target="${1:-hexgl}"
+target="${1:-ue}"
 case "$target" in
   -h|--help|help)
     usage
+    ;;
+  ue|uetraffic|unreal)
+    clone_ue
     ;;
   hexgl)
     clone_hexgl
@@ -61,6 +77,7 @@ case "$target" in
     clone_stuntrally
     ;;
   all)
+    clone_ue
     clone_hexgl
     clone_stuntrally
     ;;

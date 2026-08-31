@@ -206,9 +206,15 @@ is the next step.
 
 ## Aurelia Drive
 
-`apps/aurelia-drive/` is a browser street racer with original dusk-coastal
-graphics. It is **not** GTA 6: Rockstar assets cannot be downloaded or
-shipped here. Play it with `make race`. To fetch a *real* open-source racing
-game (HexGL, optionally Stunt Rally 3), run
-`scripts/download_oss_racing_game.sh`. Details are in
-[`third_party/racing/README.md`](third_party/racing/README.md).
+**Coding source: Unreal Engine 5** — `unreal/AureliaDrive/`.
+
+GTA 6 *level* (Nanite, Lumen, cinematic dusk city) is an engine yes.
+GTA 6 *files* are a hard no. Read [`unreal/GRAPHICS.md`](unreal/GRAPHICS.md).
+
+```bash
+# Open the UE 5.5 C++ project in the Linux Unreal Editor
+#   unreal/AureliaDrive/AureliaDrive.uproject
+
+make download-racer   # UETrafficGame (MIT, UE5 vehicles) — legal reference
+make race             # browser preview only, not the coding source
+```

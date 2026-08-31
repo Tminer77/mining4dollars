@@ -55,8 +55,8 @@ run: ## Run the API with reload
 race: ## Play Aurelia Drive (original dusk street racer) at http://127.0.0.1:8080
 	python3 -m http.server 8080 --directory apps/aurelia-drive --bind 127.0.0.1
 
-download-racer: ## Clone a legal open-source racer into third_party/racing (not GTA 6)
-	bash scripts/download_oss_racing_game.sh hexgl
+download-racer: ## Clone UETrafficGame (UE5, MIT) into third_party/racing — not GTA 6
+	bash scripts/download_oss_racing_game.sh ue
 
 clean: ## Remove caches and build artefacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage coverage.xml dist build

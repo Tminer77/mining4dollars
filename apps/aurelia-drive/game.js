@@ -11,6 +11,7 @@ const ROAD = 18;
 const CELL = BLOCK + ROAD;
 const GRID = 6;
 const CITY = GRID * CELL;
+const RING = 148;
 const LAPS = 3;
 const CAMERAS = ["chase", "hood", "cinematic"];
 
@@ -61,13 +62,12 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "hi
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.82;
+renderer.toneMappingExposure = 1.15;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x2a1524, 0.0024);
 
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 4000);
 const sun = new THREE.Vector3();
@@ -76,12 +76,12 @@ const sky = new Sky();
 sky.scale.setScalar(450000);
 scene.add(sky);
 const skyUniforms = sky.material.uniforms;
-skyUniforms.turbidity.value = 8;
-skyUniforms.rayleigh.value = 2.6;
-skyUniforms.mieCoefficient.value = 0.004;
-skyUniforms.mieDirectionalG.value = 0.85;
-const sunElevation = 3.4;
-const sunAzimuth = 188;
+skyUniforms.turbidity.value = 12;
+skyUniforms.rayleigh.value = 3.2;
+skyUniforms.mieCoefficient.value = 0.006;
+skyUniforms.mieDirectionalG.value = 0.9;
+const sunElevation = 2.2;
+const sunAzimuth = 195;
 sun.setFromSphericalCoords(
   1,
   THREE.MathUtils.degToRad(90 - sunElevation),
@@ -91,7 +91,8 @@ skyUniforms.sunPosition.value.copy(sun);
 
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(sky).texture;
-scene.background = new THREE.Color(0x2a1524);
+scene.background = null;
+sky.material.depthWrite = false;
 
 const hemi = new THREE.HemisphereLight(0xffc8a0, 0x14202a, 0.55);
 scene.add(hemi);
@@ -165,22 +166,18 @@ for (let gx = 0; gx < GRID; gx += 1) {
 addWaterfront();
 addPalms();
 addStreetLamps();
+addParkedCars();
 
 const waterGeometry = new THREE.PlaneGeometry(1800, 1800);
 const water = new Water(waterGeometry, {
   textureWidth: 512,
   textureHeight: 512,
-  waterNormals: new THREE.TextureLoader().load(
-    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/textures/waternormals.jpg",
-    (texture) => {
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    },
-  ),
+  waterNormals: makeWaterNormals(),
   sunDirection: sun.clone().normalize(),
   sunColor: 0xffe0b0,
   waterColor: 0x06364a,
   distortionScale: 3.2,
-  fog: true,
+  fog: false,
 });
 water.rotation.x = -Math.PI / 2;
 water.position.set(0, -0.35, CITY / 2 + 900);
@@ -189,11 +186,12 @@ scene.add(water);
 const car = buildCar(0xff6b4a);
 scene.add(car);
 const state = {
-  x: -CELL * 1.5,
-  z: -CELL * 1.5 - 16,
+  x: -RING,
+  z: -RING - 18,
   yaw: 0,
   speed: 0,
   camera: 0,
+  camReady: false,
   lap: 1,
   nextGate: 0,
   startedAt: 0,
@@ -211,10 +209,11 @@ const gateMeshes = gates.map((gate, index) => {
   return mesh;
 });
 renderDots();
+snapCamera();
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.7, 0.82));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.85, 0.55, 0.72));
 composer.addPass(new OutputPass());
 
 const clock = new THREE.Clock();
@@ -224,6 +223,9 @@ startBtn.addEventListener("click", () => {
   overlay.classList.add("hidden");
   state.running = true;
   state.startedAt = performance.now();
+  snapCamera();
+  renderer.domElement.tabIndex = 0;
+  renderer.domElement.focus();
   startAudio();
 });
 
@@ -352,16 +354,21 @@ function updateGates() {
 
 function updateCamera(dt) {
   const mode = CAMERAS[state.camera];
-  const back = mode === "hood" ? 0.6 : mode === "cinematic" ? 11 : 7.4;
-  const height = mode === "hood" ? 1.15 : mode === "cinematic" ? 4.6 : 2.5;
-  const look = mode === "hood" ? 14 : 10;
+  const back = mode === "hood" ? 0.55 : mode === "cinematic" ? 12 : 9.2;
+  const height = mode === "hood" ? 1.05 : mode === "cinematic" ? 5.2 : 3.1;
+  const look = mode === "hood" ? 16 : 12;
   const target = new THREE.Vector3(
     state.x - Math.sin(state.yaw) * back,
     height + Math.abs(state.speed) * 0.02,
     state.z - Math.cos(state.yaw) * back,
   );
-  camera.position.lerp(target, 1 - Math.exp(-dt * (mode === "cinematic" ? 1.6 : 6)));
-  camera.lookAt(state.x + Math.sin(state.yaw) * look, 0.8, state.z + Math.cos(state.yaw) * look);
+  if (!state.camReady) {
+    camera.position.copy(target);
+    state.camReady = true;
+  } else {
+    camera.position.lerp(target, 1 - Math.exp(-dt * (mode === "cinematic" ? 1.6 : 8)));
+  }
+  camera.lookAt(state.x + Math.sin(state.yaw) * look, 0.85, state.z + Math.cos(state.yaw) * look);
   dir.target.position.set(state.x, 0, state.z);
   dir.target.updateMatrixWorld();
   dir.position.set(state.x + sun.x * 80, 90, state.z + sun.z * 80);
@@ -440,13 +447,15 @@ function addBlock(cx, cz, gx, gz) {
     const x = cx + ox;
     const z = cz + oz;
     const geo = new THREE.BoxGeometry(w, h, d);
+    const tint = new THREE.Color(paint[(gx + gz + i) % paint.length]).lerp(new THREE.Color(0xffffff), 0.55);
     const mat = new THREE.MeshStandardMaterial({
       map: windowTex,
-      color: paint[(gx + gz + i) % paint.length],
-      roughness: 0.42,
-      metalness: 0.18,
-      emissive: new THREE.Color(0x221018),
-      emissiveIntensity: 0.25,
+      color: tint,
+      roughness: 0.38,
+      metalness: 0.22,
+      emissive: new THREE.Color(0xffc08a),
+      emissiveMap: windowTex,
+      emissiveIntensity: 0.85,
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, h / 2, z);
@@ -543,6 +552,33 @@ function makePalm() {
     g.add(leaf);
   }
   return g;
+}
+
+function addParkedCars() {
+  const colors = [0x2a6cff, 0xf2f2f0, 0x111111, 0xffd36a, 0x7a3cff];
+  for (let i = 0; i < 10; i += 1) {
+    const parked = buildCar(colors[i % colors.length]);
+    parked.scale.setScalar(0.92);
+    const along = (i % 2 === 0 ? -1 : 1) * RING;
+    const side = ((i * 37) % 220) - 110;
+    if (i % 2 === 0) {
+      parked.position.set(along + 6.5, 0.05, side);
+      parked.rotation.y = 0;
+    } else {
+      parked.position.set(side, 0.05, along + 6.5);
+      parked.rotation.y = Math.PI / 2;
+    }
+    parked.userData.heads.forEach((light) => {
+      light.intensity = 0;
+    });
+    cityGroup.add(parked);
+    buildings.push({
+      minX: parked.position.x - 1.2,
+      maxX: parked.position.x + 1.2,
+      minZ: parked.position.z - 2.2,
+      maxZ: parked.position.z + 2.2,
+    });
+  }
 }
 
 function addStreetLamps() {
@@ -673,8 +709,8 @@ function buildGate(start) {
 }
 
 function makeLoopGates() {
-  const r = CELL * 1.5;
-  const pts = [
+  const r = RING;
+  return [
     { x: -r, z: -r, yaw: 0 },
     { x: 0, z: -r, yaw: 0 },
     { x: r, z: -r, yaw: Math.PI / 2 },
@@ -684,7 +720,11 @@ function makeLoopGates() {
     { x: -r, z: r, yaw: -Math.PI / 2 },
     { x: -r, z: 0, yaw: -Math.PI / 2 },
   ];
-  return pts;
+}
+
+function snapCamera() {
+  state.camReady = false;
+  updateCamera(0.016);
 }
 
 function makeWindowTexture() {
@@ -692,19 +732,39 @@ function makeWindowTexture() {
   canvas.width = 256;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#1a141c";
+  ctx.fillStyle = "#161018";
   ctx.fillRect(0, 0, 256, 512);
-  for (let y = 8; y < 512; y += 18) {
-    for (let x = 8; x < 256; x += 16) {
-      const lit = Math.random() > 0.35;
-      ctx.fillStyle = lit ? `rgba(255, ${180 + Math.random() * 50 | 0}, ${120 + Math.random() * 40 | 0}, 0.85)` : "#0c0c12";
-      ctx.fillRect(x, y, 10, 12);
+  for (let y = 10; y < 512; y += 22) {
+    for (let x = 10; x < 256; x += 18) {
+      const lit = Math.random() > 0.28;
+      ctx.fillStyle = lit
+        ? `rgb(255, ${170 + ((Math.random() * 60) | 0)}, ${90 + ((Math.random() * 50) | 0)})`
+        : "#07070c";
+      ctx.fillRect(x, y, 12, 14);
     }
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 8;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeWaterNormals() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  const image = ctx.createImageData(256, 256);
+  for (let i = 0; i < image.data.length; i += 4) {
+    image.data[i] = 120 + Math.random() * 40;
+    image.data[i + 1] = 120 + Math.random() * 40;
+    image.data[i + 2] = 255;
+    image.data[i + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
