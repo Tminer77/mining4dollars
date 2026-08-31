@@ -1,0 +1,19 @@
+{
+  "name": "mining4dollars (FastAPI + PostgreSQL)",
+  "user": "ubuntu",
+  "install": "./scripts/cloud-agent-install.sh",
+  "start": "./scripts/cloud-agent-start.sh",
+  "terminals": [
+    {
+      "name": "API server",
+      "command": ".venv/bin/m4d serve",
+      "description": "FastAPI dev server on http://localhost:8000 (Swagger at /docs)"
+    }
+  ],
+  "ports": [
+    {
+      "name": "api",
+      "port": 8000
+    }
+  ]
+}
