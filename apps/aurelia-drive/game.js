@@ -20,6 +20,7 @@ const input = { throttle: 0, steer: 0, brake: 0 };
 
 const overlay = document.getElementById("overlay");
 const startBtn = document.getElementById("start");
+const countEl = document.getElementById("count");
 const speedEl = document.getElementById("speed");
 const gearEl = document.getElementById("gear");
 const lapEl = document.getElementById("lap");
@@ -69,7 +70,7 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 4000);
+const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 4000);
 const sun = new THREE.Vector3();
 
 const sky = new Sky();
@@ -190,8 +191,10 @@ const state = {
   z: -RING - 18,
   yaw: 0,
   speed: 0,
-  camera: 0,
+  camera: 2,
   camReady: false,
+  counting: false,
+  launchBoost: 0,
   lap: 1,
   nextGate: 0,
   startedAt: 0,
@@ -220,16 +223,32 @@ const clock = new THREE.Clock();
 let audio = null;
 
 function startRace() {
-  if (state.running) {
+  if (state.running || state.counting) {
     return;
   }
-  overlay.classList.add("hidden");
-  state.running = true;
-  state.startedAt = performance.now();
-  snapCamera();
-  renderer.domElement.tabIndex = 0;
-  renderer.domElement.focus();
-  startAudio();
+  state.counting = true;
+  const beats = ["3", "2", "1", "LAUNCH"];
+  let index = 0;
+  const pulse = () => {
+    countEl.textContent = beats[index];
+    startBtn.textContent = beats[index];
+    index += 1;
+    if (index < beats.length) {
+      window.setTimeout(pulse, 480);
+      return;
+    }
+    window.setTimeout(() => {
+      overlay.classList.add("hidden");
+      state.running = true;
+      state.launchBoost = 2.8;
+      state.startedAt = performance.now();
+      snapCamera();
+      renderer.domElement.tabIndex = 0;
+      renderer.domElement.focus();
+      startAudio();
+    }, 360);
+  };
+  pulse();
 }
 
 startBtn.addEventListener("click", startRace);
@@ -254,18 +273,21 @@ function readInput() {
   const down = keys.has("KeyS") || keys.has("ArrowDown");
   const left = keys.has("KeyA") || keys.has("ArrowLeft");
   const right = keys.has("KeyD") || keys.has("ArrowRight");
-  input.throttle = up ? 1 : 0;
+  input.throttle = up || state.launchBoost > 0 ? 1 : 0;
   input.brake = down || keys.has("Space") ? 1 : 0;
   input.steer = (left ? 1 : 0) - (right ? 1 : 0);
 }
 
 function step(dt) {
   readInput();
-  const maxSpeed = 52;
-  const accel = 24;
-  const reverseAccel = 12;
-  const drag = 1.6;
-  const brakeForce = 38;
+  if (state.launchBoost > 0) {
+    state.launchBoost = Math.max(0, state.launchBoost - dt);
+  }
+  const maxSpeed = 68;
+  const accel = state.launchBoost > 0 ? 58 : 36;
+  const reverseAccel = 14;
+  const drag = 1.15;
+  const brakeForce = 40;
 
   if (input.brake && state.speed > 0.6) {
     state.speed = Math.max(0, state.speed - brakeForce * dt);
@@ -362,9 +384,12 @@ function updateGates() {
 
 function updateCamera(dt) {
   const mode = CAMERAS[state.camera];
-  const back = mode === "hood" ? 0.55 : mode === "cinematic" ? 12 : 9.2;
-  const height = mode === "hood" ? 1.05 : mode === "cinematic" ? 5.2 : 3.1;
-  const look = mode === "hood" ? 16 : 12;
+  const punch = state.launchBoost > 0 ? 1.15 : 1;
+  const back = (mode === "hood" ? 0.55 : mode === "cinematic" ? 11 : 8.4) * punch;
+  const height = mode === "hood" ? 1.05 : mode === "cinematic" ? 3.8 : 2.7;
+  const look = mode === "hood" ? 16 : 14;
+  camera.fov = THREE.MathUtils.damp(camera.fov, state.launchBoost > 0 ? 78 : 58, 6, dt);
+  camera.updateProjectionMatrix();
   const target = new THREE.Vector3(
     state.x - Math.sin(state.yaw) * back,
     height + Math.abs(state.speed) * 0.02,
@@ -637,19 +662,28 @@ function buildCar(color) {
     transparent: true,
     opacity: 0.92,
   });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.42, 4.3), paintMat);
-  body.position.y = 0.62;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.38, 4.5), paintMat);
+  body.position.y = 0.55;
   body.castShadow = true;
   g.add(body);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.42, 1.7), glass);
-  cabin.position.set(0, 0.98, -0.15);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.38, 1.55), glass);
+  cabin.position.set(0, 0.92, -0.25);
   g.add(cabin);
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.12, 1.3), paintMat);
-  hood.position.set(0, 0.78, 1.15);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.1, 1.45), paintMat);
+  hood.position.set(0, 0.72, 1.25);
   g.add(hood);
-  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.32), dark);
-  spoiler.position.set(0, 0.95, -2.05);
+  const skirt = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.08, 4.1), dark);
+  skirt.position.set(0, 0.32, 0);
+  g.add(skirt);
+  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.06, 0.36), dark);
+  spoiler.position.set(0, 0.98, -2.15);
   g.add(spoiler);
+  const glow = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 0.04, 3.8),
+    new THREE.MeshStandardMaterial({ color: 0xff4a2a, emissive: 0xff3a18, emissiveIntensity: 2.2 }),
+  );
+  glow.position.set(0, 0.18, 0);
+  g.add(glow);
   const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff4d2, emissive: 0xfff1c8, emissiveIntensity: 3 });
   const tailMat = new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xff1e1e, emissiveIntensity: 2.4 });
   const hl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.08), lightMat);
