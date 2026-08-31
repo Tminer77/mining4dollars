@@ -201,3 +201,14 @@ The event slice is the worked example; a new capability follows the same path.
 The foundation is complete and verified. The domain slice is deliberately
 generic: the platform's specific entities are not yet modelled, and adding them
 is the next step.
+
+---
+
+## Aurelia Drive
+
+`apps/aurelia-drive/` is a browser street racer with original dusk-coastal
+graphics. It is **not** GTA 6: Rockstar assets cannot be downloaded or
+shipped here. Play it with `make race`. To fetch a *real* open-source racing
+game (HexGL, optionally Stunt Rally 3), run
+`scripts/download_oss_racing_game.sh`. Details are in
+[`third_party/racing/README.md`](third_party/racing/README.md).

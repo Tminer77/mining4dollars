@@ -26,3 +26,7 @@ coverage.xml
 .idea/
 .vscode/
 .DS_Store
+
+# Downloaded third-party racing games (see scripts/download_oss_racing_game.sh)
+third_party/racing/**
+!third_party/racing/README.md
