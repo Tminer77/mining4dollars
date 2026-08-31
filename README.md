@@ -201,3 +201,20 @@ The event slice is the worked example; a new capability follows the same path.
 The foundation is complete and verified. The domain slice is deliberately
 generic: the platform's specific entities are not yet modelled, and adding them
 is the next step.
+
+---
+
+## Aurelia Drive
+
+**Coding source: Unreal Engine 5** — `unreal/AureliaDrive/`.
+
+GTA 6 *level* (Nanite, Lumen, cinematic dusk city) is an engine yes.
+GTA 6 *files* are a hard no. Read [`unreal/GRAPHICS.md`](unreal/GRAPHICS.md).
+
+```bash
+# Open the UE 5.5 C++ project in the Linux Unreal Editor
+#   unreal/AureliaDrive/AureliaDrive.uproject
+
+make download-racer   # UETrafficGame (MIT, UE5 vehicles) — legal reference
+make race             # browser preview only, not the coding source
+```
