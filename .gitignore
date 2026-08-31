@@ -26,3 +26,16 @@ coverage.xml
 .idea/
 .vscode/
 .DS_Store
+
+# Downloaded third-party racing games (see scripts/download_oss_racing_game.sh)
+third_party/racing/**
+!third_party/racing/README.md
+
+# Unreal Engine generated (source of record is under unreal/AureliaDrive/Source)
+unreal/AureliaDrive/Binaries/
+unreal/AureliaDrive/Intermediate/
+unreal/AureliaDrive/Saved/
+unreal/AureliaDrive/DerivedDataCache/
+unreal/**/*.sln
+unreal/**/*.xcodeproj
+unreal/**/*.xcworkspace
