@@ -12,16 +12,21 @@ mkdir -p "$DEST"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/download_oss_racing_game.sh [ue|hexgl|stuntrally|all]
+Usage: scripts/download_oss_racing_game.sh [ue|hexgl|stuntrally|endless|all]
 
   ue          UETrafficGame (MIT, Unreal Engine 5, Nanite/Lumen/Chaos) — default
   hexgl       HexGL (MIT, HTML5, ~15 MB)
   stuntrally  Stunt Rally 3 source (GPL-3.0, ~1.5 GB git checkout)
+  endless     Endless Racer (MIT, UE 4.21) via download_endless_racer.sh
   all         Every target above
 
 The coding source in this repo is unreal/AureliaDrive/ (UE 5.5 C++).
 This script only fetches extra legal projects. Nothing here is GTA 6.
 EOF
+}
+
+clone_endless() {
+  bash "$ROOT/scripts/download_endless_racer.sh" all
 }
 
 clone_ue() {
@@ -76,10 +81,14 @@ case "$target" in
   stuntrally|stuntrally3)
     clone_stuntrally
     ;;
+  endless|endless-racer|ue4-endless)
+    clone_endless
+    ;;
   all)
     clone_ue
     clone_hexgl
     clone_stuntrally
+    clone_endless
     ;;
   *)
     echo "Unknown target: $target" >&2

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install fmt lint types test test-unit test-integration check migrate downgrade revision run race download-racer clean
+.PHONY: help install fmt lint types test test-unit test-integration check migrate downgrade revision run race download-racer download-endless endless-racer clean
 
 PYTHON  := .venv/bin/python
 VENVBIN := .venv/bin
@@ -57,6 +57,12 @@ race: ## Play Aurelia Drive (original dusk street racer) at http://127.0.0.1:808
 
 download-racer: ## Clone UETrafficGame (UE5, MIT) into third_party/racing — not GTA 6
 	bash scripts/download_oss_racing_game.sh ue
+
+download-endless: ## Clone Endless Racer (UE4.21) source + Windows build into third_party/racing
+	bash scripts/download_endless_racer.sh all
+
+endless-racer: ## Start Endless Racer (Unreal Editor if installed, else Wine Windows build)
+	bash scripts/run_endless_racer.sh
 
 clean: ## Remove caches and build artefacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage coverage.xml dist build
