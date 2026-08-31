@@ -219,7 +219,10 @@ composer.addPass(new OutputPass());
 const clock = new THREE.Clock();
 let audio = null;
 
-startBtn.addEventListener("click", () => {
+function startRace() {
+  if (state.running) {
+    return;
+  }
   overlay.classList.add("hidden");
   state.running = true;
   state.startedAt = performance.now();
@@ -227,6 +230,11 @@ startBtn.addEventListener("click", () => {
   renderer.domElement.tabIndex = 0;
   renderer.domElement.focus();
   startAudio();
+}
+
+startBtn.addEventListener("click", startRace);
+window.addEventListener("load", () => {
+  startRace();
 });
 
 window.addEventListener("resize", () => {

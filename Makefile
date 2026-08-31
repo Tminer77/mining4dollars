@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install fmt lint types test test-unit test-integration check migrate downgrade revision run race download-racer clean
+.PHONY: help install fmt lint types test test-unit test-integration check migrate downgrade revision run race veve download-racer clean
 
 PYTHON  := .venv/bin/python
 VENVBIN := .venv/bin
@@ -53,6 +53,9 @@ run: ## Run the API with reload
 	$(VENVBIN)/m4d serve --reload
 
 race: ## Play Aurelia Drive (original dusk street racer) at http://127.0.0.1:8080
+	python3 -m http.server 8080 --directory apps/aurelia-drive --bind 127.0.0.1
+
+veve: ## Launch the racing car (browser preview of the UE street racer)
 	python3 -m http.server 8080 --directory apps/aurelia-drive --bind 127.0.0.1
 
 download-racer: ## Clone UETrafficGame (UE5, MIT) into third_party/racing — not GTA 6
