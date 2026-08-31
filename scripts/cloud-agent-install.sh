@@ -20,15 +20,18 @@ fi
 
 # Trust local TCP connections so postgres@127.0.0.1 needs no password (matches .env.example).
 PG_HBA="/etc/postgresql/16/main/pg_hba.conf"
-if [[ -f "$PG_HBA" ]] && grep -q '127.0.0.1/32.*scram-sha-256' "$PG_HBA"; then
+if [[ -f "$PG_HBA" ]] && sudo grep -q '127.0.0.1/32.*scram-sha-256' "$PG_HBA"; then
   sudo sed -i \
     -e 's/host    all             all             127.0.0.1\/32            scram-sha-256/host    all             all             127.0.0.1\/32            trust/' \
     -e 's/host    all             all             ::1\/128                 scram-sha-256/host    all             all             ::1\/128                 trust/' \
     "$PG_HBA"
-  sudo service postgresql reload || true
 fi
 
 sudo service postgresql start
+# Reload after start so trust auth is active for TCP connections.
+if [[ -f "$PG_HBA" ]] && sudo grep -q '127.0.0.1/32.*trust' "$PG_HBA"; then
+  sudo service postgresql reload || true
+fi
 
 # Databases for the app and integration tests.
 sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='m4d'" | grep -q 1 \
